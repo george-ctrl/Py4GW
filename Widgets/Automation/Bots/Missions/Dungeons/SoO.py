@@ -2894,70 +2894,115 @@ def resolve_fendi_fight() -> Generator:
     and require 20s stable verification with neither Fendi Nin
     nor Soul of Fendi present before finishing.
     """
-    boss_model_ids = {7064, 7065} #Fendi Nin and Soul of Fendi
-    anchor_x, anchor_y = (-16022.9, 17889.9)
-    compass_sq = Range.Compass.value ** 2
+    FENDI_NIN_MODEL        = 7064
+    SOUL_FENDI_MODEL       = 7065
+    boss_model_ids         = {FENDI_NIN_MODEL, SOUL_FENDI_MODEL}
+    # 4 ticks × 500 ms = 2 s guard window after Fendi despawns.
+    # HeroAI is suppressed during this window so BuildMgr cannot call
+    # ChangeTarget on the stale agent ID before Soul of Fendi settles.
+    TRANSITION_GUARD_TICKS = 4
+
+    anchor_x, anchor_y    = (-16022.9, 17889.9)
+    compass_sq            = Range.Compass.value ** 2
     anchor_soft_radius_sq = 750.0 ** 2
-    stable_verify_ms = 0
+    stable_verify_ms      = 0
 
-    while stable_verify_ms < 20000:
-        if Map.GetMapID() != SoO_lvl3:
-            break
-        if not Routines.Checks.Map.MapValid():
-            yield from Routines.Yield.wait(500)
-            continue
+    fendi_nin_agent_id       = 0      # agent ID of model 7064 while alive
+    suppress_ticks_remaining = 0      # counts down while HeroAI is suppressed
+    hero_ai_suppressed       = False  # tracks whether we disabled it
 
-        player_pos = Player.GetXY()
-        if not player_pos:
-            yield from Routines.Yield.wait(500)
-            continue
-
-        dx_a = anchor_x - player_pos[0]
-        dy_a = anchor_y - player_pos[1]
-        if (dx_a * dx_a + dy_a * dy_a) > anchor_soft_radius_sq:
-            Player.Move(anchor_x, anchor_y)
-
-        nearest_id = 0
-        nearest_dist_sq = float("inf")
-        boss_present = False
-
-        for agent_id in AgentArray.GetEnemyArray():
-            if not Agent.IsAlive(agent_id):
+    try:
+        while stable_verify_ms < 20000:
+            if Map.GetMapID() != SoO_lvl3:
+                break
+            if not Routines.Checks.Map.MapValid():
+                yield from Routines.Yield.wait(500)
                 continue
-            enemy_pos = Agent.GetXY(agent_id)
-            if not enemy_pos:
-                continue
-            ax = enemy_pos[0] - anchor_x
-            ay = enemy_pos[1] - anchor_y
-            if (ax * ax + ay * ay) > compass_sq:
-                continue
-            if Agent.GetModelID(agent_id) in boss_model_ids:
-                boss_present = True
-            px = enemy_pos[0] - player_pos[0]
-            py = enemy_pos[1] - player_pos[1]
-            dist_sq = px * px + py * py
-            if dist_sq < nearest_dist_sq:
-                nearest_dist_sq = dist_sq
-                nearest_id = agent_id
 
-        if nearest_id:
-            stable_verify_ms = 0
-            Player.ChangeTarget(nearest_id)
-            Player.Interact(nearest_id, True)
-            target_pos = Agent.GetXY(nearest_id)
-            if target_pos:
-                dx = target_pos[0] - player_pos[0]
-                dy = target_pos[1] - player_pos[1]
-                if (dx * dx + dy * dy) > (Range.Earshot.value ** 2):
-                    Player.Move(target_pos[0], target_pos[1])
-        else:
-            if not boss_present:
-                stable_verify_ms += 500
+            player_pos = Player.GetXY()
+            if not player_pos:
+                yield from Routines.Yield.wait(500)
+                continue
+
+            # ── Fendi transform detection ─────────────────────────────────
+            # If the agent ID we were tracking just despawned, the transform
+            # is in progress — suppress HeroAI for TRANSITION_GUARD_TICKS ticks
+            # so BuildMgr cannot call ChangeTarget on the stale ID.
+            if fendi_nin_agent_id != 0 and not Agent.IsAlive(fendi_nin_agent_id):
+                suppress_ticks_remaining = TRANSITION_GUARD_TICKS
+                fendi_nin_agent_id = 0
+                ConsoleLog(BOT_NAME, "[FendiWatch] Fendi Nin despawned — suppressing HeroAI for transition", log=True)
+
+            if suppress_ticks_remaining > 0:
+                if not hero_ai_suppressed:
+                    bot.Properties.Disable('hero_ai')
+                    hero_ai_suppressed = True
+                suppress_ticks_remaining -= 1
             else:
-                stable_verify_ms = 0
-            Player.Move(anchor_x, anchor_y)
+                if hero_ai_suppressed:
+                    bot.Properties.Enable('hero_ai')
+                    hero_ai_suppressed = False
 
-        yield from Routines.Yield.wait(500)
+            # ── Anchor drift check ────────────────────────────────────────
+            dx_a = anchor_x - player_pos[0]
+            dy_a = anchor_y - player_pos[1]
+            if (dx_a * dx_a + dy_a * dy_a) > anchor_soft_radius_sq:
+                Player.Move(anchor_x, anchor_y)
+
+            nearest_id      = 0
+            nearest_dist_sq = float("inf")
+            boss_present    = False
+
+            for agent_id in AgentArray.GetEnemyArray():
+                if not Agent.IsAlive(agent_id):
+                    continue
+                enemy_pos = Agent.GetXY(agent_id)
+                if not enemy_pos:
+                    continue
+                ax = enemy_pos[0] - anchor_x
+                ay = enemy_pos[1] - anchor_y
+                if (ax * ax + ay * ay) > compass_sq:
+                    continue
+                model = Agent.GetModelID(agent_id)
+                if model in boss_model_ids:
+                    boss_present = True
+                if model == FENDI_NIN_MODEL:
+                    fendi_nin_agent_id = agent_id   # keep the live agent ID up to date
+                px = enemy_pos[0] - player_pos[0]
+                py = enemy_pos[1] - player_pos[1]
+                dist_sq = px * px + py * py
+                if dist_sq < nearest_dist_sq:
+                    nearest_dist_sq = dist_sq
+                    nearest_id = agent_id
+
+            if nearest_id and Agent.IsAlive(nearest_id):
+                stable_verify_ms = 0
+                # Skip ChangeTarget AND Interact for boss models entirely.
+                # Fendi Nin (7064) despawns mid-transform into Soul of Fendi (7065);
+                # any ChangeTarget call sets GW's manualAgentId, which AvSelect.cpp then
+                # tries to dereference after the agent is removed → assertion crash.
+                if Agent.GetModelID(nearest_id) not in boss_model_ids:
+                    Player.ChangeTarget(nearest_id)
+                    Player.Interact(nearest_id, True)
+                target_pos = Agent.GetXY(nearest_id)
+                if target_pos:
+                    dx = target_pos[0] - player_pos[0]
+                    dy = target_pos[1] - player_pos[1]
+                    if (dx * dx + dy * dy) > (Range.Earshot.value ** 2):
+                        Player.Move(target_pos[0], target_pos[1])
+            else:
+                if not boss_present:
+                    stable_verify_ms += 500
+                else:
+                    stable_verify_ms = 0
+                Player.Move(anchor_x, anchor_y)
+
+            yield from Routines.Yield.wait(500)
+
+    finally:
+        # Always re-enable HeroAI when leaving this state, even on wipe/map change.
+        if hero_ai_suppressed:
+            bot.Properties.Enable('hero_ai')
 
     ConsoleLog(BOT_NAME, "Fendi is dead -- area clear for 20s. Goodluck on chest ^.^")
     yield
