@@ -1381,7 +1381,9 @@ def draw_combined_hero_panel(account_data: AccountStruct, cached_data: CacheData
                 
                 if health_clicked or energy_clicked:
                             if Map.GetMapID() == account_data.AgentData.Map.MapID:
-                                Player.ChangeTarget(account_data.AgentData.AgentID)
+                                agent_id = account_data.AgentData.AgentID
+                                if agent_id and Agent.IsValid(agent_id):
+                                    Player.ChangeTarget(agent_id)
                                 
             if settings.ShowHeroSkills:
                 if settings.ShowHeroBars:
@@ -1476,7 +1478,9 @@ def draw_hero_panel(window: WindowModule, account_data: AccountStruct, cached_da
                                                        account_data.AgentData.Energy.Current, account_data.AgentData.Energy.Regen)
                     if health_clicked or energy_clicked:
                         if Map.GetMapID() == account_data.AgentData.Map.MapID:
-                            Player.ChangeTarget(account_data.AgentData.AgentID)
+                            agent_id = account_data.AgentData.AgentID
+                            if agent_id and Agent.IsValid(agent_id):
+                                Player.ChangeTarget(agent_id)
                             
                 if settings.ShowHeroSkills:
                     if settings.ShowHeroBars:
