@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"C:\\\\Users\\\\Yaei\\\\Documents\\\\GitHub\\\\Py4GW_cpp_files\" && grep -n \"ChangeTarget\\\\|manualAgentId\" vendor/gwca/Source/AgentMgr.cpp | head -20)",
+      "Read(//c/Users/Yaei/Documents/GitHub/Py4GW_cpp_files/**)",
+      "Bash(cd \"C:\\\\Users\\\\Yaei\\\\Documents\\\\GitHub\\\\Py4GW_cpp_files\" && grep -n \"GetAgentByID\\\\|FindAgent\" vendor/gwca/Source/AgentMgr.cpp | head -20)"
+    ]
+  }
+}
