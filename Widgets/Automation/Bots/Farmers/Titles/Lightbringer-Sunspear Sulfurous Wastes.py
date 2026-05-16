@@ -468,58 +468,60 @@ def _resign_node() -> BehaviorTree:
 
 # ── Farm sequence ────────────────────────────────────────────────────────────────
 
-def _build_farm_sequence() -> list[tuple[str, BehaviorTree]]:
+def _build_farm_sequence() -> list[BehaviorTree]:
     G = BotSettings.COMBAT_GROUPS
     sx, sy = BotSettings.BOSS_SPAWN_APPROACH
 
-    steps: list[tuple[str, BehaviorTree]] = [
+    steps: list[BehaviorTree] = [
         # One-time setup (hero setup is flag-guarded; travel and hard-mode are idempotent)
-        ("Setup_Travel",    BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL)),
-        ("Setup_Heroes",    _maybe_setup_heroes_node()),
-        ("Setup_HardMode",  BTMap.SetHardMode(hard_mode=True)),
+        BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL),
+        _maybe_setup_heroes_node(),
+        BTMap.SetHardMode(hard_mode=True),
 
         # Loop body
-        ("Loop_Travel",         BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL)),
-        ("Loop_EnterMap",       BTMovement.MoveAndExitMap(
+        BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL),
+        BTMovement.MoveAndExitMap(
             x=BotSettings.COORD_TO_EXIT_MAP[0],
             y=BotSettings.COORD_TO_EXIT_MAP[1],
             target_map_id=BotSettings.EXPLORABLE_TO_TRAVEL,
-        )),
-        ("Loop_FlagHeroes",     BTParty.FlagAllHeroes(*BotSettings.JUNUNDU_ENTRY_COORDS)),
-        ("Loop_CombatMode",     _combat_mode_node()),
-        ("Loop_SSBlessing",     _sunspear_blessing_node()),
-        ("Loop_EnterJunundu",   _enter_junundu_node()),
-        ("Loop_SetupHeroAI",    _setup_heroai_junundu_node()),
+        ),
+        BTParty.FlagAllHeroes(*BotSettings.JUNUNDU_ENTRY_COORDS),
+        _combat_mode_node(),
+
+        # Farm run
+        _sunspear_blessing_node(),
+        _enter_junundu_node(),
+        _setup_heroai_junundu_node(),
 
         # Groups 0-4: undead clusters around junundu entrance
-        *[(f"G{i:02d}_{G[i][2]}", _junundu_fight_node(G[i][0], G[i][1], G[i][2])) for i in range(5)],
+        *[_junundu_fight_node(G[i][0], G[i][1], G[i][2]) for i in range(5)],
 
         # Pass-through path to Third Undead Group (HeroAI disabled; enemies unreachable)
-        ("Loop_PassThrough",    _junundu_pass_through_node(BotSettings.PASS_THROUGH_COORDS)),
-        (f"G05_{G[5][2]}",      _junundu_fight_node(G[5][0], G[5][1], G[5][2])),
+        _junundu_pass_through_node(BotSettings.PASS_THROUGH_COORDS),
+        _junundu_fight_node(G[5][0], G[5][1], G[5][2]),
 
         # Lightbringer Margonite Blessing (granted before first margonite group)
-        ("Loop_LBBlessing",     _lb_blessing_node()),
+        _lb_blessing_node(),
 
         # Groups 6-19: margonites, djinn, ritualist bosses
-        *[(f"G{i:02d}_{G[i][2]}", _junundu_fight_node(G[i][0], G[i][1], G[i][2])) for i in range(6, 20)],
+        *[_junundu_fight_node(G[i][0], G[i][1], G[i][2]) for i in range(6, 20)],
 
         # Tome pickup at group-19 position (triggers quest update)
-        ("Loop_TomePickup",     _pickup_and_drop_node(BotSettings.TOME_COORDS[0], BotSettings.TOME_COORDS[1])),
+        _pickup_and_drop_node(BotSettings.TOME_COORDS[0], BotSettings.TOME_COORDS[1]),
 
         # Groups 20-29: sixth/seventh margonites + temple monoliths
-        *[(f"G{i:02d}_{G[i][2]}", _junundu_fight_node(G[i][0], G[i][1], G[i][2])) for i in range(20, 30)],
+        *[_junundu_fight_node(G[i][0], G[i][1], G[i][2]) for i in range(20, 30)],
 
         # Boss spawn: approach then interact with the spawn gadget
-        ("Loop_ApproachBoss",   BTMovement.Move(sx, sy, pause_on_combat=False)),
-        ("Loop_BossSpawn",      _boss_spawn_trigger_node(BotSettings.BOSS_SPAWN_COORDS[0], BotSettings.BOSS_SPAWN_COORDS[1])),
+        BTMovement.Move(sx, sy, pause_on_combat=False),
+        _boss_spawn_trigger_node(BotSettings.BOSS_SPAWN_COORDS[0], BotSettings.BOSS_SPAWN_COORDS[1]),
 
         # Final boss group (group 30)
-        (f"G30_{G[30][2]}",     _junundu_fight_node(G[30][0], G[30][1], G[30][2])),
+        _junundu_fight_node(G[30][0], G[30][1], G[30][2]),
 
         # Return and resign
-        ("Loop_Return",     BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL)),
-        ("Loop_Resign",     _resign_node()),
+        BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL),
+        _resign_node(),
     ]
 
     return steps
@@ -539,11 +541,12 @@ def _get_bot() -> BottingTree:
             )
             tree.pause_on_combat = False  # Junundu is always in combat; planner must keep ticking
 
+        _seq = BTComposite.Sequence(*_build_farm_sequence(), name="LBSSFarmLoop")
+        _loop = BehaviorTree(BehaviorTree.RepeaterForeverNode(_seq.root, name="FarmLoopForever"))
         _botting_tree = BottingTree.Create(
             BotSettings.BOT_NAME,
-            main_routine=_build_farm_sequence(),
+            main_routine=_loop,
             routine_name="LBSSFarmLoop",
-            repeat=True,
             configure_fn=_configure,
         )
         _botting_tree.UI.override_draw_config(lambda: _draw_settings())
