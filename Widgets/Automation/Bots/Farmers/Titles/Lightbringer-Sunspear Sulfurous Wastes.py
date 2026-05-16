@@ -21,7 +21,7 @@ MODULE_ICON = "Textures/Skill_Icons/[1813] - Lightbringer.jpg"
 
 _JUNUNDU_TUNNEL = 5  # slot 5 = Junundu Tunnel (1442), used for pre-move speed
 
-_RANGE_EARSHOT = 1012.0
+_RANGE_AGGRO = Range.Area.value  # 322 — combat detection range for junundu fight nodes
 
 
 class BotSettings:
@@ -322,7 +322,7 @@ def _junundu_fight_node(x: float, y: float, label: str = "") -> BehaviorTree:
         BehaviorTree.ActionNode(_start, name="Start"),
         move_or_skip,
         BehaviorTree.ActionNode(_arrived, name="Arrived"),
-        BTAgents.WaitUntilOutOfCombat(range=_RANGE_EARSHOT, timeout_ms=120000),
+        BTAgents.WaitUntilOutOfCombat(range=_RANGE_AGGRO, timeout_ms=120000),
         name=f"JFight_{node_label}",
     )
 

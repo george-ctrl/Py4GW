@@ -27,7 +27,7 @@ _SIEGE_ID  = 1441
 _TUNNEL_ID = 1442
 _FEAST_ID  = 1438
 _WAIL_ID   = 1865
-# 1443 = Leave Junundu — blocked via HeroAI options.Skills[7] = False in the bot
+_LEAVE_ID  = 1443  # Leave Junundu — only present on slot 8 when inside a wurm
 
 _NEARBY_SQ  = Range.Nearby.value  ** 2
 _EARSHOT_SQ = Range.Earshot.value ** 2
@@ -77,6 +77,15 @@ class JununduWurm(BuildMgr):
         if match_only:
             return
         Py4GW.Console.Log(_LOG, "JununduWurm build matched and active.", Py4GW.Console.MessageType.Success)
+
+    def ScoreMatch(self, current_primary=None, current_secondary=None, current_skills=None) -> int:
+        # Skill 1443 (Leave Junundu) only appears on slot 8 when inside a wurm.
+        # Refuse selection entirely when outside so HeroAI keeps the player's real build.
+        if current_skills is None:
+            current_skills = self._get_current_skills()
+        if _LEAVE_ID not in current_skills:
+            return -1
+        return super().ScoreMatch(current_primary, current_secondary, current_skills)
 
     def ProcessSkillCasting(self):
         player_id = Player.GetAgentID()
