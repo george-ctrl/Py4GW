@@ -21,7 +21,7 @@ MODULE_ICON = "Textures/Skill_Icons/[1813] - Lightbringer.jpg"
 
 _JUNUNDU_TUNNEL = 5  # slot 5 = Junundu Tunnel (1442), used for pre-move speed
 
-_RANGE_AGGRO = Range.Area.value  # 322 — combat detection range for junundu fight nodes
+_RANGE_AGGRO = Range.Earshot.value  # 1012 — OOC detection range for junundu fight nodes
 
 
 class BotSettings:
@@ -297,31 +297,9 @@ def _junundu_fight_node(x: float, y: float, label: str = "") -> BehaviorTree:
         _speed_team()
         return BehaviorTree.NodeState.SUCCESS
 
-    def _arrived(node: BehaviorTree.Node) -> BehaviorTree.NodeState:  # noqa: ARG001
-        Py4GW.Console.Log(MODULE_NAME, f"[Planner] Arrived at {node_label}, waiting OOC", Py4GW.Console.MessageType.Info)
-        return BehaviorTree.NodeState.SUCCESS
-
-    # pause_on_combat=True: movement pauses while HeroAI fights, then resumes toward destination.
-    # Wrapped in Selector so that if destination is unreachable (timeout fires → FAILURE)
-    # the sequence still continues to WaitUntilOutOfCombat instead of aborting the fight node.
-    move_or_skip = BehaviorTree(BehaviorTree.SelectorNode(
-        name="MoveOrSkip",
-        children=[
-            BehaviorTree.SubtreeNode(
-                name="TryMove",
-                subtree_fn=lambda _: BTMovement.Move(x, y, pause_on_combat=True),
-            ),
-            BehaviorTree.ActionNode(
-                lambda _: BehaviorTree.NodeState.SUCCESS,
-                name="MoveFallthrough",
-            ),
-        ],
-    ))
-
     return BTComposite.Sequence(
         BehaviorTree.ActionNode(_start, name="Start"),
-        move_or_skip,
-        BehaviorTree.ActionNode(_arrived, name="Arrived"),
+        BTMovement.Move(x, y, pause_on_combat=False),
         BTAgents.WaitUntilOutOfCombat(range=_RANGE_AGGRO, timeout_ms=120000),
         name=f"JFight_{node_label}",
     )
@@ -490,60 +468,58 @@ def _resign_node() -> BehaviorTree:
 
 # ── Farm sequence ────────────────────────────────────────────────────────────────
 
-def _build_farm_sequence() -> list[BehaviorTree]:
+def _build_farm_sequence() -> list[tuple[str, BehaviorTree]]:
     G = BotSettings.COMBAT_GROUPS
     sx, sy = BotSettings.BOSS_SPAWN_APPROACH
 
-    steps: list[BehaviorTree] = [
+    steps: list[tuple[str, BehaviorTree]] = [
         # One-time setup (hero setup is flag-guarded; travel and hard-mode are idempotent)
-        BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL),
-        _maybe_setup_heroes_node(),
-        BTMap.SetHardMode(hard_mode=True),
+        ("Setup_Travel",    BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL)),
+        ("Setup_Heroes",    _maybe_setup_heroes_node()),
+        ("Setup_HardMode",  BTMap.SetHardMode(hard_mode=True)),
 
         # Loop body
-        BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL),
-        BTMovement.MoveAndExitMap(
+        ("Loop_Travel",         BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL)),
+        ("Loop_EnterMap",       BTMovement.MoveAndExitMap(
             x=BotSettings.COORD_TO_EXIT_MAP[0],
             y=BotSettings.COORD_TO_EXIT_MAP[1],
             target_map_id=BotSettings.EXPLORABLE_TO_TRAVEL,
-        ),
-        BTParty.FlagAllHeroes(*BotSettings.JUNUNDU_ENTRY_COORDS),
-        _combat_mode_node(),
-
-        # Farm run
-        _sunspear_blessing_node(),
-        _enter_junundu_node(),
-        _setup_heroai_junundu_node(),
+        )),
+        ("Loop_FlagHeroes",     BTParty.FlagAllHeroes(*BotSettings.JUNUNDU_ENTRY_COORDS)),
+        ("Loop_CombatMode",     _combat_mode_node()),
+        ("Loop_SSBlessing",     _sunspear_blessing_node()),
+        ("Loop_EnterJunundu",   _enter_junundu_node()),
+        ("Loop_SetupHeroAI",    _setup_heroai_junundu_node()),
 
         # Groups 0-4: undead clusters around junundu entrance
-        *[_junundu_fight_node(G[i][0], G[i][1], G[i][2]) for i in range(5)],
+        *[(f"G{i:02d}_{G[i][2]}", _junundu_fight_node(G[i][0], G[i][1], G[i][2])) for i in range(5)],
 
         # Pass-through path to Third Undead Group (HeroAI disabled; enemies unreachable)
-        _junundu_pass_through_node(BotSettings.PASS_THROUGH_COORDS),
-        _junundu_fight_node(G[5][0], G[5][1], G[5][2]),
+        ("Loop_PassThrough",    _junundu_pass_through_node(BotSettings.PASS_THROUGH_COORDS)),
+        (f"G05_{G[5][2]}",      _junundu_fight_node(G[5][0], G[5][1], G[5][2])),
 
         # Lightbringer Margonite Blessing (granted before first margonite group)
-        _lb_blessing_node(),
+        ("Loop_LBBlessing",     _lb_blessing_node()),
 
         # Groups 6-19: margonites, djinn, ritualist bosses
-        *[_junundu_fight_node(G[i][0], G[i][1], G[i][2]) for i in range(6, 20)],
+        *[(f"G{i:02d}_{G[i][2]}", _junundu_fight_node(G[i][0], G[i][1], G[i][2])) for i in range(6, 20)],
 
         # Tome pickup at group-19 position (triggers quest update)
-        _pickup_and_drop_node(BotSettings.TOME_COORDS[0], BotSettings.TOME_COORDS[1]),
+        ("Loop_TomePickup",     _pickup_and_drop_node(BotSettings.TOME_COORDS[0], BotSettings.TOME_COORDS[1])),
 
         # Groups 20-29: sixth/seventh margonites + temple monoliths
-        *[_junundu_fight_node(G[i][0], G[i][1], G[i][2]) for i in range(20, 30)],
+        *[(f"G{i:02d}_{G[i][2]}", _junundu_fight_node(G[i][0], G[i][1], G[i][2])) for i in range(20, 30)],
 
         # Boss spawn: approach then interact with the spawn gadget
-        BTMovement.Move(sx, sy, pause_on_combat=False),
-        _boss_spawn_trigger_node(BotSettings.BOSS_SPAWN_COORDS[0], BotSettings.BOSS_SPAWN_COORDS[1]),
+        ("Loop_ApproachBoss",   BTMovement.Move(sx, sy, pause_on_combat=False)),
+        ("Loop_BossSpawn",      _boss_spawn_trigger_node(BotSettings.BOSS_SPAWN_COORDS[0], BotSettings.BOSS_SPAWN_COORDS[1])),
 
         # Final boss group (group 30)
-        _junundu_fight_node(G[30][0], G[30][1], G[30][2]),
+        (f"G30_{G[30][2]}",     _junundu_fight_node(G[30][0], G[30][1], G[30][2])),
 
         # Return and resign
-        BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL),
-        _resign_node(),
+        ("Loop_Return",     BTMap.TravelToOutpost(outpost_id=BotSettings.OUTPOST_TO_TRAVEL)),
+        ("Loop_Resign",     _resign_node()),
     ]
 
     return steps

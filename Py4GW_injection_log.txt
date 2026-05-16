@@ -507,3 +507,5 @@
 2026-05-16 08:43:18 [INFO] Terminating DLL...
 2026-05-16 12:41:18 [INFO] STOC_HEADER_COUNT [487]
 2026-05-16 12:41:18 [INFO] ############ StoCMgr initialization completed ############
+2026-05-16 15:18:36 [INFO] STOC_HEADER_COUNT [487]
+2026-05-16 15:18:36 [INFO] ############ StoCMgr initialization completed ############
