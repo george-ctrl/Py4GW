@@ -19,7 +19,6 @@ from Py4GWCoreLib.enums_src.GameData_enums import Range
 
 _LOG = "JununduWurm"
 _combat_log_timer = ThrottledTimer(2000)
-_ooc_log_timer    = ThrottledTimer(5000)
 
 _STRIKE_ID = 1439
 _SMASH_ID  = 1440
@@ -135,17 +134,6 @@ class JununduWurm(BuildMgr):
         yield from self.CastSkillSlot(1, aftercast_delay=300)  # Strike
 
     def ProcessOOC(self):
-        """OOC: command each NPC hero to use Tunnel. Player Tunnel is handled by _speed_team() in the bot."""
-        hero_count = GLOBAL_CACHE.Party.GetHeroCount()
-        if _ooc_log_timer.IsExpired():
-            _ooc_log_timer.Reset()
-            px, py = Agent.GetXY(Player.GetAgentID())
-            Py4GW.Console.Log(_LOG,
-                f"OOC | pos=({px:.0f},{py:.0f}) heroes={hero_count}",
-                Py4GW.Console.MessageType.Info)
-        for pos in range(1, hero_count + 1):
-            hero_agent_id = GLOBAL_CACHE.Party.Heroes.GetHeroAgentIDByPartyPosition(pos)
-            if hero_agent_id > 0 and Agent.IsAlive(hero_agent_id):
-                GLOBAL_CACHE.Party.Heroes.UseSkill(hero_agent_id, 5, 0)
+        """OOC: no-op — hero Tunnel removed for debugging; player speed handled by _speed_team() in the bot."""
         if False:
-            yield  # keep as generator; no player skill cast here to avoid interrupting planner movement
+            yield

@@ -103,6 +103,7 @@ class BotSettings:
 # ── Globals ─────────────────────────────────────────────────────────────────────
 _botting_tree: BottingTree | None = None
 _heroes_setup_done: bool = False
+_diag_timer = ThrottledTimer(3000)  # diagnostic log every 3 s
 
 # Multibox mode — commented out; single account + heroes only
 # _SETTINGS_SECTION  = "Settings"
@@ -300,9 +301,26 @@ def _junundu_fight_node(x: float, y: float, label: str = "") -> BehaviorTree:
         Py4GW.Console.Log(MODULE_NAME, f"[Planner] Arrived at {node_label}, waiting OOC", Py4GW.Console.MessageType.Info)
         return BehaviorTree.NodeState.SUCCESS
 
+    # pause_on_combat=True: movement pauses while HeroAI fights, then resumes toward destination.
+    # Wrapped in Selector so that if destination is unreachable (timeout fires → FAILURE)
+    # the sequence still continues to WaitUntilOutOfCombat instead of aborting the fight node.
+    move_or_skip = BehaviorTree(BehaviorTree.SelectorNode(
+        name="MoveOrSkip",
+        children=[
+            BehaviorTree.SubtreeNode(
+                name="TryMove",
+                subtree_fn=lambda _: BTMovement.Move(x, y, pause_on_combat=True),
+            ),
+            BehaviorTree.ActionNode(
+                lambda _: BehaviorTree.NodeState.SUCCESS,
+                name="MoveFallthrough",
+            ),
+        ],
+    ))
+
     return BTComposite.Sequence(
         BehaviorTree.ActionNode(_start, name="Start"),
-        BTMovement.Move(x, y, pause_on_combat=False),
+        move_or_skip,
         BehaviorTree.ActionNode(_arrived, name="Arrived"),
         BTAgents.WaitUntilOutOfCombat(range=_RANGE_EARSHOT, timeout_ms=120000),
         name=f"JFight_{node_label}",
@@ -325,9 +343,11 @@ def _enter_junundu_node() -> BehaviorTree:
     x, y = BotSettings.JUNUNDU_ENTRY_COORDS
     return BTComposite.Sequence(
         BTMovement.Move(x, y, pause_on_combat=False),
+        BTParty.FlagAllHeroes(x, y),
         BTPlayer.Wait(2000),
         BTMovement.InteractWithGadgetAtXY(x, y, target_distance=300.0),
         BTPlayer.Wait(3500),
+        BTParty.UnflagAllHeroes(),
         name="EnterJunundu",
     )
 
@@ -487,6 +507,7 @@ def _build_farm_sequence() -> list[BehaviorTree]:
             y=BotSettings.COORD_TO_EXIT_MAP[1],
             target_map_id=BotSettings.EXPLORABLE_TO_TRAVEL,
         ),
+        BTParty.FlagAllHeroes(*BotSettings.JUNUNDU_ENTRY_COORDS),
         _combat_mode_node(),
 
         # Farm run
@@ -537,6 +558,8 @@ def _get_bot() -> BottingTree:
             tree.Config.ConfigureUpkeepTrees(
                 disable_looting=False,
                 enable_party_wipe_recovery=True,
+                enable_outpost_imp_service=False,
+                enable_explorable_imp_service=False,
             )
             tree.pause_on_combat = False  # Junundu is always in combat; planner must keep ticking
 
@@ -932,6 +955,21 @@ def main():
         return
     bot = _get_bot()
     bot.tick()
+
+    if _diag_timer.IsExpired():
+        _diag_timer.Reset()
+        bb = bot.GetBlackboardValue
+        px, py = Agent.GetXY(Player.GetAgentID())
+        Py4GW.Console.Log(MODULE_NAME,
+            f"[Diag] pos=({px:.0f},{py:.0f})"
+            f" combat={bb('COMBAT_ACTIVE', False)}"
+            f" casting={Agent.IsCasting(Player.GetAgentID())}"
+            f" pause_mv={bb('PAUSE_MOVEMENT', False)}"
+            f" planner={bb('PLANNER_STATUS','?')}"
+            f" move_state={bb('move_state','?')}"
+            f" move_reason={bb('move_current_pause_reason','')}"
+            f" stall={bb('move_stall_retry_count',0)}",
+            Py4GW.Console.MessageType.Info)
     bot.UI.draw_window(
         icon_path=BotSettings.TEXTURE,
         extra_tabs=[
