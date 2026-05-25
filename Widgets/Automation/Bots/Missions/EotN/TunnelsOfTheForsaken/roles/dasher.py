@@ -1,10 +1,13 @@
 """
-dasher.py — TotF Auraway Dasher role.
+dasher.py — TotF Auraway Main Runner role.
 
-The Dasher (1 account) is responsible for:
-    Getting There   Run from Piken to dungeon entrance using Shadow Form.
-    Level 1         Wait for all Auras to grab Althea's quest, then
-                    execute the gate glitch to skip to Level 2.
+The Main Runner (1 account) is responsible for:
+    Getting There   Travel from Piken Square through Verdant Cascades and
+                    enter Tunnels of the Forsaken.
+    Level 1         Run the full Level 1 path, perform the Heart of Shadow
+                    wall-skip, run the post-skip path, execute the gate clip,
+                    then wait for all Auras to have grabbed their quest before
+                    signalling GATE_DONE.
     Level 2         Run the route; Auras follow via Ebon Escape.
     Level 3         Apply hexes (Barbs / MoP variant) to the Enraged Phantom,
                     pick up the boss key, trigger Varny from the cliffside,
@@ -12,19 +15,27 @@ The Dasher (1 account) is responsible for:
 
 Detection signature:  Barbs AND Dash on the skill bar.
 
-Variant detection (auto, from Optional slot):
-    HeartOfShadow equipped → DasherVariant.HOS  (faster L1/L2 jump lines)
-    MarkOfPain    equipped → DasherVariant.MOP  (better boss DPS for PUGs)
-    anything else          → DasherVariant.STANDARD
+Variant (Optional slot, slot 7):
+    MarkOfPain equipped → DasherVariant.MOP  (extra cleave on boss)
+    anything else       → DasherVariant.STANDARD
 """
 
 from __future__ import annotations
 
 import enum
+import math
+import time
 
 from Py4GWCoreLib.GlobalCache import GLOBAL_CACHE
+from Py4GWCoreLib.Player import Player
+from Py4GWCoreLib.Agent import Agent
+from Py4GWCoreLib.AgentArray import AgentArray
+from Py4GWCoreLib.Camera import Camera
+from Py4GWCoreLib.UIManager import UIManager
 from Py4GWCoreLib.py4gwcorelib_src.BehaviorTree import BehaviorTree
+from Py4GWCoreLib.py4gwcorelib_src.Utils import Utils
 from Py4GWCoreLib.routines_src.behaviourtrees_src.composite import BTComposite
+from Py4GWCoreLib.enums_src.UI_enums import ControlAction
 
 from Py4GWCoreLib.sc_framework import (
     SCRole, register_role, SCCoordinator,
@@ -34,31 +45,22 @@ from Py4GWCoreLib.sc_framework import (
 
 from ._shared import _slot_for
 from ..constants import (
-    Barriers, Signals, SkillID, ModelID, QuestID,
-    Waypoints, PARTY_SIZE, BARBS_INTERVAL_MS,
+    MapID, Barriers, Signals, SkillID, ModelID,
+    Waypoints, GateClip, HoSSkip, PARTY_SIZE, BARBS_INTERVAL_MS,
 )
-from ..agents import find_enraged_phantom, find_varny
-from ._shared import make_sf_upkeep, make_sod_upkeep, make_iau_upkeep, make_stuck_watchdog
+from ..agents import find_enraged_phantom, find_varny, find_dungeon_entrance
+from ._shared import make_sf_upkeep, make_sod_upkeep, make_iau_upkeep, make_stuck_watchdog, make_consumable_service
 
 
 # ── Variant ───────────────────────────────────────────────────────────────────
 
 class DasherVariant(enum.Enum):
-    STANDARD = "standard"  # Dash gate glitch (default).
-    HOS      = "hos"       # Heart of Shadow jump lines (experienced teams).
-    MOP      = "mop"       # Mark of Pain on enemies for cleave damage.
+    STANDARD = "standard"
+    MOP      = "mop"       # Mark of Pain in Optional slot for extra boss DPS
 
 
 def _detect_variant() -> DasherVariant:
-    """
-    Inspect the Optional slot (slot 7) to select the correct Dasher variant.
-
-    The wiki build uses slot 7 as the Optional slot.  If Heart of Shadow or
-    Mark of Pain is equipped there, switch to the matching variant.
-    """
     optional_skill = GLOBAL_CACHE.SkillBar.GetSkillIDBySlot(7)
-    if optional_skill == SkillID.HeartOfShadow:
-        return DasherVariant.HOS
     if optional_skill == SkillID.MarkOfPain:
         return DasherVariant.MOP
     return DasherVariant.STANDARD
@@ -68,52 +70,34 @@ def _detect_variant() -> DasherVariant:
 
 @register_role
 class DasherRole(SCRole):
-    """Dasher role for TotF Auraway."""
+    """Main Runner role for TotF Auraway."""
 
     role_id = "dasher"
 
     @classmethod
     def _matches(cls, skill_bar: list[int]) -> bool:
-        """Detected when Barbs AND Dash are both on the skill bar."""
         return SkillID.Barbs in skill_bar and SkillID.Dash in skill_bar
 
-    # ── services ──────────────────────────────────────────────────────────
-
     def register_services(self) -> list[tuple[str, BehaviorTree]]:
-        """
-        Parallel services active throughout the entire run.
-
-        Stuck recovery uses Death's Charge to teleport to the nearest ally.
-        Dasher does NOT register Ebon Escape follow — that is only for Auras.
-        """
         dc_slot = _slot_for(SkillID.DeathsCharge)
         dc_recovery = (
             lambda: GLOBAL_CACHE.SkillBar.UseSkill(dc_slot)
             if dc_slot else None
         )
-
         return [
-            ("ShadowForm",  make_sf_upkeep()),
-            ("Shroud",      make_sod_upkeep()),
-            ("IAU",         make_iau_upkeep()),
-            ("StuckWatch",  make_stuck_watchdog(dc_recovery)),
+            ("ShadowForm",    make_sf_upkeep()),
+            ("Shroud",        make_sod_upkeep()),
+            ("IAU",           make_iau_upkeep()),
+            ("Consumables",   make_consumable_service()),
+            ("StuckWatch",    make_stuck_watchdog(dc_recovery)),
         ]
 
-    # ── planner ───────────────────────────────────────────────────────────
-
     def build_planner(self, coord: SCCoordinator) -> BehaviorTree:
-        """
-        Full Dasher planner sequence.
-
-        Structure:
-            GettingThere → Level1 → Level2 → Level3
-        """
         variant = _detect_variant()
-
         return BehaviorTree(
             BTComposite.Sequence(
                 _build_getting_there(),
-                _build_level1(coord, variant),
+                _build_level1(coord),
                 _build_level2(coord),
                 _build_level3(coord, variant),
                 name="DasherPlanner",
@@ -121,21 +105,27 @@ class DasherRole(SCRole):
         )
 
 
-# ── phase builders ────────────────────────────────────────────────────────────
+# ── shared helpers ────────────────────────────────────────────────────────────
 
 def _sf_active() -> bool:
-    """Pre-move safety check: Shadow Form must be active before running."""
-    from Py4GWCoreLib.Player import Player
     return GLOBAL_CACHE.Effects.HasEffect(Player.GetAgentID(), SkillID.ShadowForm)
 
+def _mono_ms() -> float:
+    return time.monotonic() * 1_000.0
+
+
+# ── Getting There ─────────────────────────────────────────────────────────────
 
 def _build_getting_there() -> BehaviorTree:
     """
-    Run from Piken Square to the dungeon entrance.
+    Travel from Piken Square to TotF Level 1.
 
-    Uses SF as the pre-move safety check — we won't move until SF is active.
-    Recovery falls back to STRAFE (BTMovement's built-in).
+    Walking the PIKEN_TO_DUNGEON path naturally crosses the zone boundary from
+    map 40 into map 102.  After the path ends at the dungeon entrance, we
+    interact with the portal and wait for the map to load.
     """
+    from Py4GWCoreLib.Map import Map
+
     return BTComposite.Sequence(
         SCMovement.RunPath(
             Waypoints.PIKEN_TO_DUNGEON,
@@ -143,48 +133,337 @@ def _build_getting_there() -> BehaviorTree:
             recovery=RecoveryStrategy.STRAFE,
             name="Dasher:GettingThere",
         ),
+        SCActions.InteractNPC(
+            find_dungeon_entrance,
+            timeout_ms=10_000,
+            name="Dasher:EnterDungeon",
+        ),
+        SCActions.WaitForCondition(
+            lambda: Map.GetMapID() == MapID.TUNNELS_LEVEL1,
+            timeout_ms=30_000,
+            name="Dasher:WaitDungeonLoad",
+        ),
         name="GettingThere",
     )
 
 
-def _build_level1(coord: SCCoordinator, variant: DasherVariant) -> BehaviorTree:
-    """
-    Level 1 — gate glitch.
+# ── Level 1 ───────────────────────────────────────────────────────────────────
 
-    Wait for all 3 Auras to grab Althea's quest (they signal individually),
-    then move to the gate and execute the glitch.  Signal GATE_DONE so Auras
-    know they can follow.
+def _build_level1(coord: SCCoordinator) -> BehaviorTree:
     """
-    # Choose the glitch action based on variant.
-    if variant == DasherVariant.HOS:
-        glitch_action = _heart_of_shadow_jump()
-    else:
-        glitch_action = _gate_glitch_dash()
+    Level 1 sequence for the Main Runner.
 
+    1. Run the 17-waypoint Level 1 path toward the HoS skip wall.
+    2. Heart of Shadow skip over the wall.
+    3. Run the 16-waypoint post-skip path to the gate area.
+    4. Gate clip through the Level 1 gate.
+    5. Wait for all Auras to signal QUEST_GRABBED (safety valve if runner is too fast).
+    6. Signal GATE_DONE so Auras know they can proceed.
+    """
     return BTComposite.Sequence(
-        # Yield until all 3 Auras have signalled QUEST_GRABBED.
-        coord.wait_for_n_node(Signals.QUEST_GRABBED, n=PARTY_SIZE - 1, name="WaitQuestGrabbed"),
-        # Move to the gate glitch position.
-        SCMovement.Move(
-            *Waypoints.GATE_GLITCH_POS,
+        SCMovement.RunPath(
+            Waypoints.LEVEL1_MAIN_RUNNER,
             pre_move_check_fn=_sf_active,
-            name="Dasher:MoveToGate",
+            recovery=RecoveryStrategy.STRAFE,
+            name="Dasher:Level1Run",
         ),
-        # Execute the glitch.
-        glitch_action,
-        # Tell Auras the gate is done.
+        _build_hos_skip(),
+        SCMovement.RunPath(
+            Waypoints.HOS_POST_SKIP,
+            pre_move_check_fn=_sf_active,
+            recovery=RecoveryStrategy.STRAFE,
+            name="Dasher:PostSkipRun",
+        ),
+        _build_gate_clip_node(),
+        coord.wait_for_n_node(Signals.QUEST_GRABBED, n=PARTY_SIZE - 1, name="WaitQuestGrabbed"),
         coord.signal_node(Signals.GATE_DONE, name="SignalGateDone"),
         name="Level1",
     )
 
 
-def _build_level2(coord: SCCoordinator) -> BehaviorTree:
-    """
-    Level 2 — run the route.
+# ── Heart of Shadow skip ──────────────────────────────────────────────────────
 
-    Auras spam Ebon Escape on the Dasher (handled in their own
-    EbonEscapeFollow service) so the Dasher just runs straight through.
+def _build_hos_skip() -> BehaviorTree:
     """
+    Jump over the Level 1 wall using Heart of Shadow.
+
+    The skip targets the nearest alive hostile that is generally west of the
+    player (agent.x < player.x - HoSSkip.WEST_THRESHOLD) and within cast
+    range.  After casting, success is confirmed when player.y > HoSSkip.SUCCESS_Y.
+
+    State machine:
+        FIND_TARGET  scan enemies; if found advance to CAST; timeout → retry
+        CAST         fire HoS; record pre-skip position; advance to VERIFY
+        VERIFY       poll position; success → SUCCESS; timeout → retry
+    """
+    state: dict = {
+        "phase":         "find_target",
+        "target_id":     None,
+        "pre_pos":       None,
+        "phase_ms":      0.0,
+        "retries":       0,
+    }
+
+    def _transition(phase: str) -> None:
+        state["phase"]    = phase
+        state["phase_ms"] = _mono_ms()
+
+    def _find_west_target() -> int | None:
+        px, py = Player.GetXY()
+        best_id   = None
+        best_dist = HoSSkip.CAST_RANGE
+        try:
+            for aid in AgentArray.GetEnemyArray():
+                if not Agent.IsAlive(aid):
+                    continue
+                ax, ay = Agent.GetXY(aid)
+                if ax > px - HoSSkip.WEST_THRESHOLD:
+                    continue
+                dist = Utils.Distance((px, py), (ax, ay))
+                if dist < best_dist:
+                    best_dist = dist
+                    best_id   = aid
+        except Exception:
+            pass
+        return best_id
+
+    def _tick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
+        phase   = state["phase"]
+        elapsed = _mono_ms() - state["phase_ms"]
+
+        if phase == "find_target":
+            target = _find_west_target()
+            if target is not None:
+                state["target_id"] = target
+                state["pre_pos"]   = Player.GetXY()
+                _transition("cast")
+            elif elapsed >= HoSSkip.FIND_TIMEOUT_MS:
+                state["retries"] += 1
+                if state["retries"] > HoSSkip.MAX_RETRIES:
+                    return BehaviorTree.NodeState.FAILURE
+                _transition("find_target")
+
+        elif phase == "cast":
+            slot = _slot_for(SkillID.HeartOfShadow)
+            if slot:
+                GLOBAL_CACHE.SkillBar.UseSkill(slot, state["target_id"])
+            _transition("verify")
+
+        elif phase == "verify":
+            _px, py = Player.GetXY()
+            if py > HoSSkip.SUCCESS_Y:
+                state["phase"]   = "find_target"
+                state["retries"] = 0
+                return BehaviorTree.NodeState.SUCCESS
+            if elapsed >= HoSSkip.VERIFY_MS:
+                state["retries"] += 1
+                if state["retries"] > HoSSkip.MAX_RETRIES:
+                    return BehaviorTree.NodeState.FAILURE
+                _transition("find_target")
+
+        return BehaviorTree.NodeState.RUNNING
+
+    return BehaviorTree(BehaviorTree.ActionNode(_tick, name="HoSSkip"))
+
+
+# ── Gate clip ─────────────────────────────────────────────────────────────────
+
+def _build_gate_clip_node() -> BehaviorTree:
+    """
+    Mob-collision gate clip at the end of Level 1.
+
+    Ports the gate_clip_test.py state machine as a single BT ActionNode.
+
+    States:
+        approach     walk to GateClip.GATE_POS
+        wait_mobs    wait for hostile agents within MOB_WAIT_RADIUS
+        lure_wait    wait LURE_WAIT_MS for mobs to stop moving + reach melee range
+        walk_back    hold MoveBackward; watch for any tracked enemy to start moving
+        clip         jiggle Forward+StrafeRight until player crosses SUCCESS_Y
+        done         (internal) issue post-clip move and return SUCCESS next tick
+    """
+    _MOB_WAIT_RADIUS    = 600.0
+    _MELEE_RANGE        = 160.0
+    _LURE_WAIT_MS       = 3_000
+    _WALK_BACK_TIMEOUT  = 8_000
+    _CLIP_DURATION_MS   = 6_000
+    _CLIP_PRESS_MS      = 200
+    _CLIP_RELEASE_MS    = 50
+    _CLIP_JIGGLE_RAD    = math.radians(5.0)
+    _APPROACH_REISSUE   = 500
+    _ARRIVAL_DIST       = 80.0
+    _MAX_RETRIES        = 10
+    _WALK_YAW           = math.pi   # 180°
+    _CLIP_YAW           = 3.022     # 173.1°
+
+    state: dict = {
+        "phase":          "approach",
+        "phase_ms":       0.0,
+        "tracked":        set(),
+        "backward_held":  False,
+        "clip_phase":     "idle",
+        "clip_phase_ms":  0.0,
+        "clip_jiggle":    1,
+        "clip_held":      False,
+        "retry":          0,
+        "last_move_ms":   0.0,
+    }
+
+    def _now() -> float:
+        return _mono_ms()
+
+    def _elapsed() -> float:
+        return _now() - state["phase_ms"]
+
+    def _transition(phase: str) -> None:
+        state["phase"]    = phase
+        state["phase_ms"] = _now()
+
+    def _hold_backward() -> None:
+        if not state["backward_held"]:
+            UIManager.Keydown(ControlAction.ControlAction_MoveBackward.value, 0)
+            state["backward_held"] = True
+
+    def _release_backward() -> None:
+        if state["backward_held"]:
+            UIManager.Keyup(ControlAction.ControlAction_MoveBackward.value, 0)
+            state["backward_held"] = False
+
+    def _release_clip_keys() -> None:
+        if state["clip_held"]:
+            UIManager.Keyup(ControlAction.ControlAction_MoveForward.value, 0)
+            UIManager.Keyup(ControlAction.ControlAction_StrafeRight.value, 0)
+            state["clip_held"]  = False
+        state["clip_phase"] = "idle"
+
+    def _release_all() -> None:
+        _release_backward()
+        _release_clip_keys()
+
+    def _nearby_hostiles() -> list:
+        px, py = Player.GetXY()
+        result = []
+        try:
+            for aid in AgentArray.GetEnemyArray():
+                if not Agent.IsAlive(aid):
+                    continue
+                dist = Utils.Distance((px, py), Agent.GetXY(aid))
+                if dist < _MOB_WAIT_RADIUS:
+                    result.append(aid)
+        except Exception:
+            pass
+        return result
+
+    def _tick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
+        phase = state["phase"]
+
+        # ── done ─────────────────────────────────────────────────────────────
+        if phase == "done":
+            _release_all()
+            return BehaviorTree.NodeState.SUCCESS
+
+        px, py = Player.GetXY()
+
+        # ── approach ─────────────────────────────────────────────────────────
+        if phase == "approach":
+            dist = Utils.Distance((px, py), GateClip.GATE_POS)
+            if dist < _ARRIVAL_DIST:
+                _transition("wait_mobs")
+                return BehaviorTree.NodeState.RUNNING
+            now = _now()
+            if now - state["last_move_ms"] > _APPROACH_REISSUE:
+                Player.Move(*GateClip.GATE_POS)
+                state["last_move_ms"] = now
+
+        # ── wait_mobs ─────────────────────────────────────────────────────────
+        elif phase == "wait_mobs":
+            Camera.SetYaw(_WALK_YAW)
+            if _nearby_hostiles():
+                _transition("lure_wait")
+
+        # ── lure_wait ─────────────────────────────────────────────────────────
+        elif phase == "lure_wait":
+            Camera.SetYaw(_WALK_YAW)
+            if _elapsed() < _LURE_WAIT_MS:
+                return BehaviorTree.NodeState.RUNNING
+            hostiles = _nearby_hostiles()
+            if any(Agent.IsMoving(aid) for aid in hostiles):
+                return BehaviorTree.NodeState.RUNNING
+            far = [aid for aid in hostiles
+                   if Utils.Distance((px, py), Agent.GetXY(aid)) > _MELEE_RANGE]
+            if far:
+                return BehaviorTree.NodeState.RUNNING
+            state["tracked"] = set(hostiles)
+            _transition("walk_back")
+
+        # ── walk_back ─────────────────────────────────────────────────────────
+        elif phase == "walk_back":
+            Camera.SetYaw(_WALK_YAW)
+            _hold_backward()
+            for aid in list(state["tracked"]):
+                try:
+                    if Agent.IsAlive(aid) and Agent.IsMoving(aid):
+                        _release_backward()
+                        _transition("clip")
+                        return BehaviorTree.NodeState.RUNNING
+                except Exception:
+                    pass
+            if _elapsed() >= _WALK_BACK_TIMEOUT:
+                _release_backward()
+                _transition("lure_wait")
+
+        # ── clip ──────────────────────────────────────────────────────────────
+        elif phase == "clip":
+            now        = _now()
+            clip_phase = state["clip_phase"]
+            Camera.SetYaw(_CLIP_YAW + state["clip_jiggle"] * _CLIP_JIGGLE_RAD)
+
+            if clip_phase == "idle":
+                UIManager.Keydown(ControlAction.ControlAction_MoveForward.value, 0)
+                UIManager.Keydown(ControlAction.ControlAction_StrafeRight.value, 0)
+                state["clip_held"]      = True
+                state["clip_phase"]     = "pressing"
+                state["clip_phase_ms"]  = now
+
+            elif clip_phase == "pressing":
+                if now - state["clip_phase_ms"] >= _CLIP_PRESS_MS:
+                    UIManager.Keyup(ControlAction.ControlAction_MoveForward.value, 0)
+                    UIManager.Keyup(ControlAction.ControlAction_StrafeRight.value, 0)
+                    state["clip_held"]     = False
+                    state["clip_phase"]    = "releasing"
+                    state["clip_phase_ms"] = now
+
+            elif clip_phase == "releasing":
+                if now - state["clip_phase_ms"] >= _CLIP_RELEASE_MS:
+                    state["clip_jiggle"] = -state["clip_jiggle"]
+                    UIManager.Keydown(ControlAction.ControlAction_MoveForward.value, 0)
+                    UIManager.Keydown(ControlAction.ControlAction_StrafeRight.value, 0)
+                    state["clip_held"]     = True
+                    state["clip_phase"]    = "pressing"
+                    state["clip_phase_ms"] = now
+
+            if py > GateClip.SUCCESS_Y and px > GateClip.SUCCESS_MIN_X:
+                _release_all()
+                Camera.SetYaw(_WALK_YAW)
+                Player.Move(*GateClip.DEST_POS)
+                state["phase"] = "done"
+                return BehaviorTree.NodeState.RUNNING  # one more frame before SUCCESS
+
+            if _elapsed() >= _CLIP_DURATION_MS:
+                _release_all()
+                state["retry"] += 1
+                if state["retry"] > _MAX_RETRIES:
+                    return BehaviorTree.NodeState.FAILURE
+                _transition("approach")
+
+        return BehaviorTree.NodeState.RUNNING
+
+    return BehaviorTree(BehaviorTree.ActionNode(_tick, name="GateClip"))
+
+
+# ── Level 2 ───────────────────────────────────────────────────────────────────
+
+def _build_level2(coord: SCCoordinator) -> BehaviorTree:
     return BTComposite.Sequence(
         SCMovement.RunPath(
             Waypoints.LEVEL2_ROUTE,
@@ -195,20 +474,9 @@ def _build_level2(coord: SCCoordinator) -> BehaviorTree:
     )
 
 
-def _build_level3(coord: SCCoordinator, variant: DasherVariant) -> BehaviorTree:
-    """
-    Level 3 — hexes, boss key, trigger, and boss hex loop.
+# ── Level 3 ───────────────────────────────────────────────────────────────────
 
-    Sequence:
-        1.  Run to Enraged Phantom.
-        2.  Apply hexes (Barbs; MoP if variant).
-        3.  Wait for all 4 to confirm Phantom is dead.
-        4.  Pick up boss key.
-        5.  Move to cliffside trigger position.
-        6.  Signal boss triggered; all roles rendezvous at boss room.
-        7.  Maintain Barbs on Varny until boss dead barrier is satisfied.
-    """
-    # Hex actions for the Phantom.
+def _build_level3(coord: SCCoordinator, variant: DasherVariant) -> BehaviorTree:
     hex_phantom_steps = [
         SCActions.CastSkill(
             slot_fn=lambda: _slot_for(SkillID.Barbs),
@@ -226,18 +494,14 @@ def _build_level3(coord: SCCoordinator, variant: DasherVariant) -> BehaviorTree:
         )
 
     return BTComposite.Sequence(
-        # ── Enraged Phantom ──────────────────────────────────────────────
         SCMovement.Move(*Waypoints.PHANTOM_POS, pre_move_check_fn=_sf_active, name="Dasher:MoveToPhantom"),
         *hex_phantom_steps,
         coord.barrier_node(Barriers.PHANTOM_DEAD, required=PARTY_SIZE, name="PhantomDeadBarrier"),
 
-        # ── Boss key and trigger ──────────────────────────────────────────
         SCActions.PickupNearestItem(ModelID.BOSS_KEY, name="PickupBossKey"),
         SCMovement.Move(*Waypoints.CLIFFSIDE_TRIGGER, pre_move_check_fn=_sf_active, name="Dasher:MoveToCliffside"),
-        _trigger_boss_from_cliffside(),
         coord.signal_node(Signals.BOSS_TRIGGERED, name="SignalBossTriggered"),
 
-        # ── Boss fight ────────────────────────────────────────────────────
         SCMovement.Move(*Waypoints.BOSS_ROOM_POS, pre_move_check_fn=_sf_active, name="Dasher:MoveToBossRoom"),
         coord.barrier_node(Barriers.ALL_AT_BOSS, required=PARTY_SIZE, name="AllAtBossBarrier"),
         _barbs_loop_on_varny(coord, variant),
@@ -246,80 +510,14 @@ def _build_level3(coord: SCCoordinator, variant: DasherVariant) -> BehaviorTree:
     )
 
 
-# ── atomic action helpers ─────────────────────────────────────────────────────
-
-def _gate_glitch_dash() -> BehaviorTree:
-    """
-    Gate glitch using Dash.
-
-    Dash into the gate boundary at the recorded GATE_GLITCH_POS.
-    The exact movement is a micro-path recorded at the glitch point;
-    adjust GATE_GLITCH_POS in constants.py for the correct angle.
-    """
-    return SCActions.CastSkill(
-        slot_fn=lambda: _slot_for(SkillID.Dash),
-        name="GateGlitch:Dash",
-    )
-
-
-def _heart_of_shadow_jump() -> BehaviorTree:
-    """
-    Gate glitch using Heart of Shadow (HOS variant).
-
-    HoS teleports the player forward ~300 units, allowing the gate to be
-    bypassed without stopping.  See Toolbox Notes on the wiki for jump lines.
-    """
-    return SCActions.CastSkill(
-        slot_fn=lambda: _slot_for(SkillID.HeartOfShadow),
-        name="GateGlitch:HoS",
-    )
-
-
-def _trigger_boss_from_cliffside() -> BehaviorTree:
-    """
-    Trigger Varny the Zealot by interacting from the cliffside.
-
-    The exact interaction depends on the dungeon mechanic (move to trigger
-    zone).  This is currently modelled as a simple positional action —
-    moving to CLIFFSIDE_TRIGGER is sufficient; refine if a specific
-    object interaction is needed.
-    """
-    # Moving to CLIFFSIDE_TRIGGER in Level3 sequence IS the trigger.
-    # This node signals that the trigger has been reached and returns SUCCESS.
-    def _tick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
-        return BehaviorTree.NodeState.SUCCESS  # already at the spot from prior Move
-
-    return BehaviorTree(BehaviorTree.ActionNode(_tick, name="TriggerBoss"))
-
-
 def _barbs_loop_on_varny(coord: SCCoordinator, variant: DasherVariant) -> BehaviorTree:
-    """
-    Maintain Barbs (and optionally MoP) on Varny until the boss is dead.
-
-    The loop re-applies Barbs every BARBS_INTERVAL_MS.  IsLockSatisfied is
-    polled each tick via a ConditionNode wrapping the barrier check; when
-    satisfied the Sequence completes and the planner advances.
-
-    This is implemented as a RepeaterForeverNode gated by a BOSS_DEAD
-    condition check in a SelectorNode:
-        SelectorNode(
-            BossDeadCheck → SUCCESS (exits loop),
-            ReapplyBarbs  → RUNNING (keeps looping),
-        )
-    """
-    import time
-
     state: dict = {"last_barbs_ms": 0.0}
 
-    def _barbs_tick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
-        from Py4GWCoreLib.py4gwcorelib_src.Utils import Utils
-        import Py4GW
-
-        # Exit condition: barrier already satisfied by all roles.
+    def _tick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
         if coord._is_satisfied(Barriers.BOSS_DEAD, PARTY_SIZE):
             return BehaviorTree.NodeState.SUCCESS
 
-        now = time.monotonic() * 1_000.0
+        now = _mono_ms()
         if (now - state["last_barbs_ms"]) >= BARBS_INTERVAL_MS:
             target = find_varny()
             if target:
@@ -332,4 +530,4 @@ def _barbs_loop_on_varny(coord: SCCoordinator, variant: DasherVariant) -> Behavi
 
         return BehaviorTree.NodeState.RUNNING
 
-    return BehaviorTree(BehaviorTree.ActionNode(_barbs_tick, name="BarbsLoop"))
+    return BehaviorTree(BehaviorTree.ActionNode(_tick, name="BarbsLoop"))

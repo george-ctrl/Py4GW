@@ -1,15 +1,14 @@
 """
-gate_clip_test.py — TotF gate clip test (simplified).
+gate_clip_test.py — TotF gate clip test.
 
 Algorithm:
-    1. Walk normally to APPROACH_POS.
-    2. Wait for at least one hostile in MOB_WAIT_RADIUS.
-    3. Set camera yaw to CLIP_CAMERA_YAW (face west for correct MoveBackward direction).
-    4. Hold MoveBackward until within ARRIVAL_DIST of CLIP_POS_1.
-    5. Release backward, hold Forward+StrafeRight for up to CLIP_DURATION_MS.
-    6. If player Y > SUCCESS_Y → clip succeeded → navigate to DEST_POS.
-    7. Else hold MoveBackward until within ARRIVAL_DIST of CLIP_POS_2, retry.
-    8. If still failed → restart from step 1.
+    1. Walk to GATE_POS and set camera for backwards walk.
+    2. Wait for at least one hostile within MOB_WAIT_RADIUS; record their IDs.
+    3. Hold MoveBackward toward CLIP_POS.
+    4. Each tick: if any recorded hostile closes distance by > MOV_THRESHOLD → clip.
+    5. Fallback: arrived at CLIP_POS without trigger → clip anyway.
+    6. Clip success: player Y > SUCCESS_Y → navigate to DEST_POS.
+    7. Clip fail: restart from step 1.
 """
 
 import math
@@ -29,9 +28,9 @@ MODULE_NAME = "GateClip Test"
 _LOG_SRC    = "GateClip"
 
 # ── Skill IDs ──────────────────────────────────────────────────────────────────
-SF_ID  = 826    # Shadow Form
-SOD_ID = 1031   # Shroud of Distress
-DP_ID  = 572    # Deadly Paradox
+SF_ID  = 826
+SOD_ID = 1031
+DP_ID  = 572
 
 # ── Upkeep timing ──────────────────────────────────────────────────────────────
 SF_RECAST_BUFFER_MS  = 3_000
@@ -39,46 +38,51 @@ SOD_RECAST_BUFFER_MS = 3_000
 CAST_COOLDOWN_MS     = 250
 
 # ── Positions ──────────────────────────────────────────────────────────────────
-APPROACH_POS  = (-8835.32, 3495.77)  # walk normally here first
-CLIP_POS_1    = (-8617.52, 3495.38)  # first clip attempt (walk backwards here)
-CLIP_POS_2    = (-8529.51, 3495.23)  # second clip attempt (walk backwards here)
-DEST_POS      = (-8585.0,  5367.0)   # destination after a successful clip
+GATE_POS = (-8821.39, 3495.75)  # stand here to lure mobs
+CLIP_POS = (-8639.05, 3495.43)  # walk backwards to here
+DEST_POS = (-8645.88, 4210.55)  # destination after successful clip
 
 # ── Gate geometry ──────────────────────────────────────────────────────────────
-SUCCESS_Y = 3515.0  # player Y > this = clipped through the gate
+SUCCESS_Y     = 3515.0   # player Y > this = clipped through the gate
+SUCCESS_MIN_X = -8900.0  # player X must be > this to exclude the west alcove
 
 # ── Camera ─────────────────────────────────────────────────────────────────────
-# GW yaw: 0 = east, π/2 = north, ±π = west, -π/2 = south (standard math radians).
-# With camera facing west: MoveBackward drives east (+X) toward clip positions,
-# and StrafeRight drives in the perpendicular direction for the clip attempt.
-# Tune this if backward movement goes the wrong way.
-WALK_CAMERA_YAW = math.pi  # 180° — used while walking backwards
+WALK_CAMERA_YAW = math.pi  # 180° — MoveBackward drives east toward CLIP_POS
 CLIP_CAMERA_YAW = 3.022    # 173.1° — used during clip attempt
 
 # ── Mob detection ──────────────────────────────────────────────────────────────
-MOB_WAIT_RADIUS = 600.0  # wait for a hostile within this range before proceeding
+MOB_WAIT_RADIUS = 600.0   # detect any hostile within this range before starting lure wait
+MELEE_RANGE     = 160.0   # enemies must be within this distance before walk_back starts
 
 # ── Tuning ─────────────────────────────────────────────────────────────────────
-ARRIVAL_DIST        = 80.0   # close enough to a walk target
-APPROACH_WAIT_MS    = 2_000  # wait at approach pos (camera set) before walking backwards
-LURE_WAIT_MS        = 3_000  # wait at clip position for mobs to arrive before clipping
-PRE_CLIP_WAIT_MS    = 2_000  # settle time between lure wait and pressing clip keys
-CLIP_DURATION_MS    = 2_500  # how long to hold Forward+StrafeRight per attempt
-APPROACH_REISSUE_MS = 500    # re-issue Player.Move if still not arrived
+LURE_WAIT_MS         = 3_000   # wait at gate after enemies arrive before walking back
+WALK_BACK_TIMEOUT_MS = 8_000   # give up waiting for enemy movement and retry lure
+ARRIVAL_DIST         = 80.0
+CLIP_DURATION_MS     = 6_000   # total clip attempt window
+CLIP_PRESS_MS        = 200     # hold Forward+StrafeRight for this many ms
+CLIP_RELEASE_MS      = 50      # release between presses for this many ms
+CLIP_JIGGLE_RAD      = math.radians(5.0)  # camera jiggle ±5° before each press
+APPROACH_REISSUE_MS  = 500
 
-# ── Log throttle intervals ────────────────────────────────────────────────────
+# ── Log throttle ───────────────────────────────────────────────────────────────
 _TICK_LOG_MS   = 500
 _UPKEEP_LOG_MS = 5_000
 
 # ── Module state ───────────────────────────────────────────────────────────────
-_running          = False
-_state            = "idle"
-_backward_held    = False
-_clip_keys_held   = False
-_last_cast_ms     = 0
-_last_move_ms     = 0
-_state_enter_ms   = 0
-_retry_count      = 0
+_running        = False
+_state          = "idle"
+_backward_held  = False
+_clip_keys_held = False
+_last_cast_ms        = 0
+_last_move_ms        = 0
+_state_enter_ms      = 0
+_retry_count         = 0
+_clip_phase: str       = "idle"   # "pressing" | "releasing"
+_clip_phase_ms: int    = 0
+_clip_jiggle_sign: int = 1
+_clip_camera_offset: float = 0.0
+
+_tracked_enemies: set[int] = set()
 
 _last_log_ms: dict[str, int] = {}
 
@@ -96,8 +100,7 @@ def _log_ok(msg: str):
 
 def _log_throttled(key: str, msg: str, level=Console.MessageType.Info):
     now = _now_ms()
-    last = _last_log_ms.get(key)
-    if last is None or now - last >= _TICK_LOG_MS:
+    if now - _last_log_ms.get(key, 0) >= _TICK_LOG_MS:
         ConsoleLog(_LOG_SRC, msg, level, log=True)
         _last_log_ms[key] = now
 
@@ -161,21 +164,15 @@ def _release_backward():
         _backward_held = False
         _log("Keyup: MoveBackward")
 
-def _hold_clip_keys():
-    global _clip_keys_held
-    if not _clip_keys_held:
-        UIManager.Keydown(ControlAction.ControlAction_MoveForward.value, 0)
-        UIManager.Keydown(ControlAction.ControlAction_StrafeRight.value, 0)
-        _clip_keys_held = True
-        _log("Keydown: MoveForward + StrafeRight")
-
 def _release_clip_keys():
-    global _clip_keys_held
+    global _clip_keys_held, _clip_phase, _clip_camera_offset
     if _clip_keys_held:
         UIManager.Keyup(ControlAction.ControlAction_MoveForward.value, 0)
         UIManager.Keyup(ControlAction.ControlAction_StrafeRight.value, 0)
         _clip_keys_held = False
         _log("Keyup: MoveForward + StrafeRight")
+    _clip_phase         = "idle"
+    _clip_camera_offset = 0.0
 
 def _release_all_keys():
     _release_backward()
@@ -186,7 +183,7 @@ def _release_all_keys():
 
 def _transition(new_state: str, msg: str = "", level=Console.MessageType.Info):
     global _state, _state_enter_ms
-    prev = _state
+    prev            = _state
     _state          = new_state
     _state_enter_ms = _now_ms()
     px, py = Player.GetXY()
@@ -202,12 +199,9 @@ def _transition(new_state: str, msg: str = "", level=Console.MessageType.Info):
 def _tick_approach():
     global _last_move_ms
     px, py = Player.GetXY()
-    dist   = Utils.Distance((px, py), APPROACH_POS)
+    dist   = Utils.Distance((px, py), GATE_POS)
 
-    _log_throttled(
-        "approach",
-        f"Walking to approach — dist={dist:.1f}  pos=({px:.1f}, {py:.1f})",
-    )
+    _log_throttled("approach", f"Walking to gate — dist={dist:.1f}  pos=({px:.1f}, {py:.1f})")
 
     if dist < ARRIVAL_DIST:
         _transition("wait_for_mobs", f"arrived dist={dist:.1f}")
@@ -215,19 +209,25 @@ def _tick_approach():
 
     now = _now_ms()
     if now - _last_move_ms > APPROACH_REISSUE_MS:
-        Player.Move(*APPROACH_POS)
+        Player.Move(*GATE_POS)
         _last_move_ms = now
+        _log(f"[approach] Player.Move issued — dist={dist:.1f}", Console.MessageType.Debug)
 
 
-def _nearby_hostiles() -> list[int]:
+_IGNORED_NAMES = {"wavering echo"}
+
+def _nearby_hostiles(radius: float = MOB_WAIT_RADIUS) -> list[int]:
     px, py = Player.GetXY()
     result = []
     try:
         for agent_id in AgentArray.GetEnemyArray():
             if not Agent.IsAlive(agent_id):
                 continue
+            name = Agent.GetNameByID(agent_id).strip().lower()
+            if name in _IGNORED_NAMES:
+                continue
             ax, ay = Agent.GetXY(agent_id)
-            if Utils.Distance((px, py), (ax, ay)) < MOB_WAIT_RADIUS:
+            if Utils.Distance((px, py), (ax, ay)) < radius:
                 result.append(agent_id)
     except Exception as exc:
         _log_warn(f"AgentArray query failed: {exc}")
@@ -237,100 +237,122 @@ def _nearby_hostiles() -> list[int]:
 def _tick_wait_for_mobs():
     hostiles = _nearby_hostiles()
     count    = len(hostiles)
-    _log_throttled(
-        "wait_mobs",
-        f"Waiting for mobs — {count} hostile(s) in range (radius={MOB_WAIT_RADIUS})",
-    )
+    _log_throttled("wait_mobs", f"Waiting for mobs — {count} in range (r={MOB_WAIT_RADIUS:.0f})")
     if count > 0:
-        _transition("approach_wait", f"{count} hostile(s) detected")
+        _transition("lure_wait", f"{count} hostile(s) detected")
 
 
+def _tick_lure_wait():
+    global _tracked_enemies
+    elapsed = _elapsed()
+    if elapsed < LURE_WAIT_MS:
+        _log_throttled("lure_wait", f"Lure wait — {elapsed}ms / {LURE_WAIT_MS}ms")
+        return
+    px, py = Player.GetXY()
+    hostiles = _nearby_hostiles()
+    moving   = [aid for aid in hostiles if Agent.IsMoving(aid)]
+    far      = [aid for aid in hostiles if Utils.Distance((px, py), Agent.GetXY(aid)) > MELEE_RANGE]
+    status   = "  ".join(
+        f"[{aid}] {'MOVING' if Agent.IsMoving(aid) else 'idle'} d={Utils.Distance((px, py), Agent.GetXY(aid)):.0f}"
+        for aid in hostiles
+    )
+    _log_throttled("lure_settle", f"[lure_wait] settling — {status or 'no hostiles'}", Console.MessageType.Debug)
+    if moving:
+        _log_throttled("lure_moving", f"[lure_wait] {len(moving)} enemy(s) still moving — waiting", Console.MessageType.Debug)
+        return
+    if far:
+        _log_throttled("lure_far", f"[lure_wait] {len(far)} enemy(s) not in melee range yet — waiting", Console.MessageType.Debug)
+        return
+    _tracked_enemies = set(hostiles)
+    _transition("walk_back", f"{len(_tracked_enemies)} enemies idle and in melee range — starting walk back")
 
-def _tick_walk_back(target: tuple[float, float], next_state: str):
-    """Hold MoveBackward until player is within ARRIVAL_DIST of target."""
+
+def _tick_walk_back():
     _hold_backward()
     px, py = Player.GetXY()
-    dist   = Utils.Distance((px, py), target)
 
+    for agent_id in list(_tracked_enemies):
+        try:
+            if not Agent.IsAlive(agent_id):
+                _log_throttled(f"wb_{agent_id}", f"[walk_back] [{agent_id}] dead — skipping", Console.MessageType.Debug)
+                continue
+            moving = Agent.IsMoving(agent_id)
+            _log_throttled(f"wb_{agent_id}", f"[walk_back] [{agent_id}] {'MOVING — triggering clip' if moving else 'idle'}", Console.MessageType.Debug)
+            if moving:
+                _release_backward()
+                _transition("clip", f"enemy {agent_id} started moving")
+                return
+        except Exception as exc:
+            _log_warn(f"enemy {agent_id} query failed: {exc}")
+
+    elapsed = _elapsed()
     _log_throttled(
         "walk_back",
-        f"Walking back to ({target[0]:.1f}, {target[1]:.1f}) — "
-        f"dist={dist:.1f}  pos=({px:.1f}, {py:.1f})",
+        f"[walk_back] pos=({px:.1f}, {py:.1f})  elapsed={elapsed}ms / {WALK_BACK_TIMEOUT_MS}ms",
     )
 
-    if dist < ARRIVAL_DIST:
+    if elapsed >= WALK_BACK_TIMEOUT_MS:
         _release_backward()
-        _transition(next_state, f"arrived dist={dist:.1f}")
+        _log_warn(f"[walk_back] timeout — no enemy movement detected, retrying lure")
+        _transition("lure_wait", "walk_back timeout")
 
 
-def _tick_clip(fail_state: str):
-    """Hold Forward+StrafeRight, check success, transition on timeout."""
-    _hold_clip_keys()
-    _, py = Player.GetXY()
+def _start_clip_press(now: int):
+    global _clip_phase, _clip_phase_ms, _clip_jiggle_sign, _clip_camera_offset, _clip_keys_held
+    _clip_jiggle_sign   = -_clip_jiggle_sign
+    _clip_camera_offset = _clip_jiggle_sign * CLIP_JIGGLE_RAD
+    UIManager.Keydown(ControlAction.ControlAction_MoveForward.value, 0)
+    UIManager.Keydown(ControlAction.ControlAction_StrafeRight.value, 0)
+    _clip_keys_held = True
+    _clip_phase     = "pressing"
+    _clip_phase_ms  = now
 
-    _log_throttled(
-        "clip",
-        f"Clipping — Y={py:.2f}  target Y>{SUCCESS_Y}  elapsed={_elapsed()}ms",
-    )
 
-    if py > SUCCESS_Y:
+def _tick_clip():
+    global _clip_phase, _clip_phase_ms, _clip_keys_held, _retry_count
+    now = _now_ms()
+
+    if _clip_phase == "idle":
+        _start_clip_press(now)
+    elif _clip_phase == "pressing":
+        if now - _clip_phase_ms >= CLIP_PRESS_MS:
+            UIManager.Keyup(ControlAction.ControlAction_MoveForward.value, 0)
+            UIManager.Keyup(ControlAction.ControlAction_StrafeRight.value, 0)
+            _clip_keys_held = False
+            _clip_phase     = "releasing"
+            _clip_phase_ms  = now
+    elif _clip_phase == "releasing":
+        if now - _clip_phase_ms >= CLIP_RELEASE_MS:
+            _start_clip_press(now)
+
+    px, py = Player.GetXY()
+    _log_throttled("clip", f"Clipping — pos=({px:.1f}, {py:.2f})  phase={_clip_phase}  offset={math.degrees(_clip_camera_offset):.1f}°  elapsed={_elapsed()}ms")
+
+    if py > SUCCESS_Y and px > SUCCESS_MIN_X:
         _release_all_keys()
-        _log_ok(f"CLIP SUCCESS — Y={py:.2f}  elapsed={_elapsed()}ms")
+        _log_ok(f"CLIP SUCCESS — pos=({px:.1f}, {py:.2f})  elapsed={_elapsed()}ms")
         Player.Move(*DEST_POS)
-        _transition("success", f"Y={py:.2f}")
+        _transition("success", f"pos=({px:.1f}, {py:.2f})")
         return
 
     if _elapsed() >= CLIP_DURATION_MS:
         _release_all_keys()
-        _log_warn(
-            f"Clip timed out after {CLIP_DURATION_MS}ms — "
-            f"Y={py:.2f} (need >{SUCCESS_Y})"
-        )
-        _transition(fail_state, "timeout")
-
-
-# Maps timed-wait states to (duration_ms, next_state, log_label).
-_WAIT_STATES: dict[str, tuple[int, str, str]] = {
-    "approach_wait": (APPROACH_WAIT_MS, "walk_back_1", "Approach wait"),
-    "lure_wait_1":   (LURE_WAIT_MS,     "pre_clip_1",  "Lure wait 1"),
-    "pre_clip_1":    (PRE_CLIP_WAIT_MS, "clip_1",      "Pre-clip settle 1"),
-    "lure_wait_2":   (LURE_WAIT_MS,     "pre_clip_2",  "Lure wait 2"),
-    "pre_clip_2":    (PRE_CLIP_WAIT_MS, "clip_2",      "Pre-clip settle 2"),
-}
-
-
-def _tick_wait(duration_ms: int, next_state: str, label: str):
-    elapsed = _elapsed()
-    key = f"wait_{next_state}"
-    if key not in _last_log_ms:
-        _last_log_ms[key] = _now_ms()  # seed so first log fires after one throttle interval
-    _log_throttled(key, f"{label} — {elapsed}ms / {duration_ms}ms")
-    if elapsed >= duration_ms:
-        _transition(next_state, f"{label} done")
+        _log_warn(f"Clip timed out after {CLIP_DURATION_MS}ms — Y={py:.2f} (need >{SUCCESS_Y})")
+        _transition("approach", "retry")
+        _retry_count += 1
 
 
 def _tick_state():
-    global _retry_count
-
-    if _state in _WAIT_STATES:
-        duration_ms, next_state, label = _WAIT_STATES[_state]
-        _tick_wait(duration_ms, next_state, label)
-        return
-
     if _state == "approach":
         _tick_approach()
     elif _state == "wait_for_mobs":
         _tick_wait_for_mobs()
-    elif _state == "walk_back_1":
-        _tick_walk_back(CLIP_POS_1, "lure_wait_1")
-    elif _state == "clip_1":
-        _tick_clip(fail_state="walk_back_2")
-    elif _state == "walk_back_2":
-        _tick_walk_back(CLIP_POS_2, "lure_wait_2")
-    elif _state == "clip_2":
-        _tick_clip(fail_state="approach")
-        if _state == "approach":   # transitioned = both attempts failed
-            _retry_count += 1
+    elif _state == "lure_wait":
+        _tick_lure_wait()
+    elif _state == "walk_back":
+        _tick_walk_back()
+    elif _state == "clip":
+        _tick_clip()
 
 
 # ── Upkeep ─────────────────────────────────────────────────────────────────────
@@ -366,16 +388,15 @@ def _upkeep_sod():
     _log_upkeep("sod", f"SoD {sod_remaining/1000:.1f}s remaining")
 
 def _maintain_camera():
-    """Force camera yaw every tick — the game resets it otherwise."""
-    if _state in ("clip_1", "clip_2", "pre_clip_1", "pre_clip_2"):
-        Camera.SetYaw(CLIP_CAMERA_YAW)
+    if _state == "clip":
+        Camera.SetYaw(CLIP_CAMERA_YAW + _clip_camera_offset)
     else:
         Camera.SetYaw(WALK_CAMERA_YAW)
 
 def _upkeep():
     _upkeep_sf()
     _upkeep_sod()
-    if _state in ("approach_wait", "walk_back_1", "clip_1", "walk_back_2", "clip_2"):
+    if _state in ("wait_for_mobs", "walk_back", "clip"):
         _maintain_camera()
 
 
@@ -395,17 +416,14 @@ def _draw_window():
             else:
                 _log("=" * 60)
                 _log("Starting gate clip test")
-                _log(f"  APPROACH     = {APPROACH_POS}")
-                _log(f"  CLIP_1       = {CLIP_POS_1}")
-                _log(f"  CLIP_2       = {CLIP_POS_2}")
+                _log(f"  GATE_POS     = {GATE_POS}")
+                _log(f"  CLIP_POS     = {CLIP_POS}")
                 _log(f"  DEST         = {DEST_POS}")
                 _log(f"  SUCCESS_Y    = {SUCCESS_Y}")
-                _log(f"  LURE_WAIT    = {LURE_WAIT_MS}ms")
-                _log(f"  PRE_CLIP     = {PRE_CLIP_WAIT_MS}ms")
+                _log(f"  MOB_RADIUS   = {MOB_WAIT_RADIUS}")
                 _log(f"  CLIP_DUR     = {CLIP_DURATION_MS}ms")
                 _log(f"  WALK_YAW     = {WALK_CAMERA_YAW:.4f} ({math.degrees(WALK_CAMERA_YAW):.1f}°)")
                 _log(f"  CLIP_YAW     = {CLIP_CAMERA_YAW:.4f} ({math.degrees(CLIP_CAMERA_YAW):.1f}°)")
-                _log(f"  MOB_RADIUS   = {MOB_WAIT_RADIUS}")
                 _log("=" * 60)
                 _retry_count = 0
                 _running     = True
@@ -435,11 +453,21 @@ def _draw_window():
         PyImGui.separator()
 
         yaw = Camera.GetYaw()
-        target_yaw = CLIP_CAMERA_YAW if _state in ("clip_1", "clip_2", "pre_clip_1", "pre_clip_2") else WALK_CAMERA_YAW
+        target_yaw = CLIP_CAMERA_YAW if _state == "clip" else WALK_CAMERA_YAW
         PyImGui.text(f"Camera  yaw={yaw:.3f} ({math.degrees(yaw):.1f}°)  target={math.degrees(target_yaw):.1f}°")
 
         hostiles = _nearby_hostiles()
         PyImGui.text(f"Mobs    {len(hostiles)} in range (r={MOB_WAIT_RADIUS:.0f})")
+        PyImGui.text(f"Tracked {len(_tracked_enemies)} enemies")
+        if _tracked_enemies:
+            for eid in list(_tracked_enemies)[:4]:
+                try:
+                    moving = Agent.IsMoving(eid)
+                    ax, ay = Agent.GetXY(eid)
+                    dist   = Utils.Distance((px, py), (ax, ay))
+                    PyImGui.text(f"  [{eid}] {'MOVING' if moving else 'idle'} d={dist:.0f}")
+                except Exception:
+                    PyImGui.text(f"  [{eid}] (error)")
 
         PyImGui.separator()
 
@@ -457,7 +485,7 @@ def _draw_window():
 
 def main():
     _draw_window()
-    if not _running or _state in ("idle", "success", "failed"):
+    if not _running or _state in ("idle", "success"):
         return
     _upkeep()
     _tick_state()

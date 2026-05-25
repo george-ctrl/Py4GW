@@ -15,9 +15,12 @@ from Py4GWCoreLib.GlobalCache import GLOBAL_CACHE
 from Py4GWCoreLib.Player import Player
 from Py4GWCoreLib.py4gwcorelib_src.BehaviorTree import BehaviorTree
 
-from Py4GWCoreLib.sc_framework.services import UpkeepService, StuckWatchdog
+from Py4GWCoreLib.sc_framework.services import UpkeepService, StuckWatchdog, PeriodicService
 
-from ..constants import SkillID, UPKEEP_COOLDOWN_MS, SF_RECAST_BUFFER_MS, SOD_RECAST_BUFFER_MS, STUCK_THRESHOLD_MS
+from ..constants import (
+    SkillID, UPKEEP_COOLDOWN_MS, SF_RECAST_BUFFER_MS, SOD_RECAST_BUFFER_MS,
+    STUCK_THRESHOLD_MS, CONS_UPKEEP_INTERVAL_MS, ALL_CONSUMABLES,
+)
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -101,6 +104,51 @@ def make_iau_upkeep() -> BehaviorTree:
 
 
 # ── Stuck watchdog ────────────────────────────────────────────────────────────
+
+# ── Consumable upkeep ─────────────────────────────────────────────────────────
+# _cons_enabled is read by draw_ui() in __init__.py; toggling a key at runtime
+# takes effect on the next upkeep tick (no restart needed).
+
+_cons_enabled: dict = {spec.key: True for spec in ALL_CONSUMABLES}
+
+
+def get_enabled_consumable_specs() -> list:
+    """Return (model_id, effect_name) pairs for all currently enabled consumables."""
+    return [
+        (spec.model_id, spec.effect_name)
+        for spec in ALL_CONSUMABLES
+        if _cons_enabled.get(spec.key, True)
+    ]
+
+
+def make_consumable_service() -> BehaviorTree:
+    """
+    Periodic service that re-applies every enabled consumable whose effect is absent.
+
+    Runs every CONS_UPKEEP_INTERVAL_MS.  Each tick iterates only the enabled
+    specs, resolves the effect ID once, checks HasEffect, and uses the item
+    if the effect is missing and the item is in inventory.
+    """
+    def _upkeep() -> None:
+        pid = Player.GetAgentID()
+        for model_id, effect_name in get_enabled_consumable_specs():
+            effect_id = int(GLOBAL_CACHE.Skill.GetID(effect_name) or 0)
+            if effect_id <= 0:
+                continue
+            if GLOBAL_CACHE.Effects.HasEffect(pid, effect_id):
+                continue
+            item_id = int(GLOBAL_CACHE.Inventory.GetFirstModelID(model_id) or 0)
+            if item_id <= 0:
+                continue
+            GLOBAL_CACHE.Inventory.UseItem(item_id)
+
+    return PeriodicService.build(
+        "ConsumableUpkeep",
+        action_fn=_upkeep,
+        interval_ms=CONS_UPKEEP_INTERVAL_MS,
+        run_immediately=True,
+    )
+
 
 def make_stuck_watchdog(recovery_cast_fn=None) -> BehaviorTree:
     """

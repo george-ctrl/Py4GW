@@ -37,7 +37,7 @@ from ..constants import (
     Waypoints, PARTY_SIZE, EE_TRIGGER_DISTANCE, EE_COOLDOWN_MS,
 )
 from ..agents import find_althea, find_enraged_phantom, find_varny, find_dasher
-from ._shared import make_sf_upkeep, make_sod_upkeep, make_iau_upkeep, make_stuck_watchdog
+from ._shared import make_sf_upkeep, make_sod_upkeep, make_iau_upkeep, make_stuck_watchdog, make_consumable_service
 
 
 # ── Role class ────────────────────────────────────────────────────────────────
@@ -84,11 +84,12 @@ class AuraRole(SCRole):
         )
 
         return [
-            ("ShadowForm",      make_sf_upkeep()),
-            ("Shroud",          make_sod_upkeep()),
-            ("IAU",             make_iau_upkeep()),
+            ("ShadowForm",       make_sf_upkeep()),
+            ("Shroud",           make_sod_upkeep()),
+            ("IAU",              make_iau_upkeep()),
+            ("Consumables",      make_consumable_service()),
             ("EbonEscapeFollow", ee_follow),
-            ("StuckWatch",      make_stuck_watchdog(dc_recovery)),
+            ("StuckWatch",       make_stuck_watchdog(dc_recovery)),
         ]
 
     # ── planner ───────────────────────────────────────────────────────────

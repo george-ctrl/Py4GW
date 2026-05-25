@@ -9,33 +9,47 @@
     ],
     "enc:\\\\x0BD7\\\\x82CB\\\\x0528": [
       "Suit of 100 Armor",
-      "Agent 32"
+      "Agent 32",
+      "Agent 34"
     ],
     "enc:\\\\x0BD8\\\\xA06E\\\\xC195\\\\x4292": [
       "Suit of 60 Armor",
       "Agent 30",
-      "Agent 33"
+      "Agent 33",
+      "Agent 32",
+      "Agent 35"
     ],
     "enc:\\\\x0BD9\\\\xE564\\\\x5BF4": [
       "Suit of 80 Armor",
-      "Agent 31"
+      "Agent 31",
+      "Agent 33",
+      "Agent 30"
     ],
     "enc:\\\\x0BDA\\\\x8F1B\\\\xCCCF\\\\x7F30": [
       "Practice Target",
-      "Agent 189"
+      "Agent 189",
+      "Agent 190",
+      "Agent 191"
     ],
     "enc:\\\\x0BDC\\\\xF8B5\\\\xCE9B\\\\x6BFE": [
       "Agent 123",
-      "Student of Blind"
+      "Student of Blind",
+      "Agent 71"
     ],
     "enc:\\\\x0BDF\\\\xFB0B\\\\xF320\\\\x3739": [
-      "Student of Dazed"
+      "Student of Dazed",
+      "Agent 70",
+      "Agent 68"
     ],
     "enc:\\\\x0BE0\\\\x8D50\\\\xD487\\\\x7295": [
-      "Student of Disease"
+      "Student of Disease",
+      "Agent 69",
+      "Agent 67"
     ],
     "enc:\\\\x0BE2\\\\x9F4A\\\\xCAE8\\\\x0687": [
-      "Student of Weakness"
+      "Student of Weakness",
+      "Agent 71",
+      "Agent 69"
     ],
     "enc:\\\\x0D39\\\\xCF3B\\\\xED6E\\\\x4EF1": [
       "Guard of the Isles"
@@ -44,11 +58,14 @@
       "Adjacent"
     ],
     "enc:\\\\x0D80\\\\xD7E3\\\\x96FB\\\\x5C39": [
-      "In the Area"
+      "In the Area",
+      "Agent 40",
+      "Agent 41"
     ],
     "enc:\\\\x0D82\\\\xFDF3\\\\x95B0\\\\x4670": [
       "Adjacent to Foe",
-      "Agent 191"
+      "Agent 191",
+      "Agent 192"
     ],
     "enc:\\\\x0D83\\\\x8FB5\\\\xFA35\\\\x771A": [
       "Nearby"
@@ -62,26 +79,231 @@
     "enc:\\\\x0D86\\\\xEAEA\\\\xAF17\\\\x3173": [
       "Short Bow Target"
     ],
+    "enc:\\\\x0E8C\\\\xAB0C\\\\xC152\\\\x0AAC": [
+      "Wyng Soothingclaw"
+    ],
+    "enc:\\\\x0F8C\\\\x9506\\\\xF1ED\\\\x6402": [
+      "Agent 240",
+      "Spirit of Winter"
+    ],
+    "enc:\\\\x0F8D\\\\xFF3F\\\\x91EC\\\\x5753": [
+      "Agent 150",
+      "Spirit of Winnowing"
+    ],
+    "enc:\\\\x0F91\\\\x8757\\\\x1653": [
+      "Agent 273",
+      "Spirit of Symbiosis",
+      "Agent 156",
+      "Agent 309"
+    ],
+    "enc:\\\\x0F94\\\\xA43E\\\\xD09D\\\\x1C53": [
+      "Agent 253",
+      "Spirit of Frozen Soil"
+    ],
     "enc:\\\\x0F95\\\\xF318\\\\x6CFE": [
       "Spirit of Favorable Winds",
-      "Agent 84"
+      "Agent 84",
+      "Agent 76"
     ],
     "enc:\\\\x0F98\\\\x84F2\\\\xC816\\\\x298E": [
       "Agent 325",
-      "Spirit of Quickening Zephyr"
+      "Spirit of Quickening Zephyr",
+      "Agent 84",
+      "Agent 112",
+      "Agent 255"
     ],
     "enc:\\\\x0F99\\\\x863D\\\\xD474\\\\x6ACA": [
       "Spirit of Nature's Renewal",
       "Agent 339"
     ],
+    "enc:\\\\x0FEA\\\\xF501\\\\xB397\\\\x178F": [
+      "Agent 220",
+      "Smuuz the Unfeeling"
+    ],
+    "enc:\\\\x0FED\\\\xC620\\\\x9E37\\\\x5FDB": [
+      "Agent 221",
+      "Lumps Ruinator"
+    ],
+    "enc:\\\\x0FEE\\\\xCD92\\\\x8894\\\\x13BE": [
+      "Agent 75",
+      "Maim Deathrain"
+    ],
+    "enc:\\\\x1015\\\\xA8EA\\\\xC66A\\\\x59C9": [
+      "Agent 178",
+      "Charr Chaot",
+      "Agent 202"
+    ],
+    "enc:\\\\x1016\\\\xA236\\\\x59CC": [
+      "Agent 27",
+      "Charr Mind Spark"
+    ],
+    "enc:\\\\x1017\\\\xA067\\\\xA6BC\\\\x5983": [
+      "Charr Mind Spark"
+    ],
+    "enc:\\\\x1018\\\\xD4E8\\\\xA369\\\\x4F65": [
+      "Agent 176",
+      "Charr Ashen Claw",
+      "Agent 19",
+      "Agent 201"
+    ],
+    "enc:\\\\x1019\\\\xAA05\\\\xFF37\\\\x22B0": [
+      "Charr Ash Walker"
+    ],
+    "enc:\\\\x101A\\\\x965A\\\\x4E10": [
+      "Agent 25",
+      "Agent 26",
+      "Agent 27",
+      "Agent 28",
+      "Charr Ash Walker"
+    ],
+    "enc:\\\\x101B\\\\xC825\\\\xA6F1\\\\x0860": [
+      "Agent 182",
+      "Charr Flame Wielder",
+      "Agent 21",
+      "Agent 25",
+      "Agent 204"
+    ],
+    "enc:\\\\x101D\\\\xF6E5\\\\xD15C\\\\x2F5F": [
+      "Agent 31",
+      "Charr Fire Caller"
+    ],
+    "enc:\\\\x101F\\\\xFBDA\\\\x868C\\\\x6A2E": [
+      "Agent 22",
+      "Charr Fire Caller"
+    ],
+    "enc:\\\\x1020\\\\xC9A0\\\\x903A\\\\x2DF3": [
+      "Agent 175",
+      "Charr Shaman",
+      "Agent 20",
+      "Agent 24",
+      "Agent 199"
+    ],
+    "enc:\\\\x1022\\\\xF709\\\\xBA83\\\\x0CF7": [
+      "Agent 29",
+      "Charr Martyr"
+    ],
+    "enc:\\\\x1023\\\\xEE3B\\\\xD5C7\\\\x7109": [
+      "Charr Martyr"
+    ],
+    "enc:\\\\x1025\\\\xA8BD\\\\xC478\\\\x47C2": [
+      "Agent 62",
+      "Charr Axe Fiend",
+      "Agent 22",
+      "Agent 169"
+    ],
+    "enc:\\\\x1026\\\\x99E9\\\\x7770": [
+      "Agent 28",
+      "Charr Axe Warrior"
+    ],
+    "enc:\\\\x1027\\\\x838D\\\\x301E": [
+      "Agent 58",
+      "Charr Blade Storm",
+      "Agent 18",
+      "Agent 26",
+      "Agent 170"
+    ],
+    "enc:\\\\x1028\\\\xA504\\\\x339A": [
+      "Charr Blade Warrior"
+    ],
+    "enc:\\\\x1029\\\\xA86D\\\\x8515\\\\x05F4": [
+      "Charr Blade Warrior"
+    ],
+    "enc:\\\\x102A\\\\xE056\\\\x87F8\\\\x1694": [
+      "Agent 44",
+      "Charr Hunter",
+      "Agent 23",
+      "Agent 49"
+    ],
+    "enc:\\\\x102C\\\\xEC41\\\\xF305\\\\x72A4": [
+      "Agent 30",
+      "Charr Stalker"
+    ],
+    "enc:\\\\x102D\\\\xB6F2\\\\xBA80\\\\x7C1B": [
+      "Charr Stalker"
+    ],
+    "enc:\\\\x102F\\\\xE176\\\\x9FFE\\\\x1977": [
+      "Agent 178",
+      "Lynx"
+    ],
+    "enc:\\\\x103E\\\\xCA73\\\\xFE79\\\\x4E5D": [
+      "Agent 34",
+      "Gypsie Ettin"
+    ],
+    "enc:\\\\x1063\\\\x8177\\\\x162F": [
+      "Agent 34",
+      "Agent 35",
+      "Agent 36",
+      "Agent 37",
+      "Agent 38",
+      "Bog Skale"
+    ],
+    "enc:\\\\x1064\\\\xE528\\\\x8BA8\\\\x7275": [
+      "Bog Skale Blighter"
+    ],
+    "enc:\\\\x106B\\\\xA420\\\\xB5D7\\\\x13BE": [
+      "Swoop Needlegrip"
+    ],
+    "enc:\\\\x1071\\\\xB9DD\\\\xA785\\\\x5369": [
+      "Agent 40",
+      "Caromi Tengu Wild"
+    ],
+    "enc:\\\\x1073\\\\xA50F\\\\xC7A1\\\\x445B": [
+      "Caromi Tengu Brave"
+    ],
+    "enc:\\\\x1076\\\\x94F6\\\\xD3F9\\\\x706A": [
+      "Caromi Tengu Brave"
+    ],
+    "enc:\\\\x1078\\\\x961A\\\\xA417\\\\x79EF": [
+      "Agent 39",
+      "Caromi Tengu Scout"
+    ],
+    "enc:\\\\x107C\\\\x9CEF\\\\xC0D8\\\\x1E81": [
+      "Fire Imp"
+    ],
+    "enc:\\\\x1080\\\\xC39C\\\\x87C0\\\\x0E7E": [
+      "Agent 120",
+      "Reed Stalker"
+    ],
+    "enc:\\\\x1081\\\\x8291\\\\xC190\\\\x2760": [
+      "Agent 107",
+      "Spined Aloe"
+    ],
+    "enc:\\\\x1216\\\\x841F\\\\x4A6A": [
+      "White Mantle Abbot"
+    ],
+    "enc:\\\\x121C\\\\x99A1\\\\xB6F3\\\\x395B": [
+      "White Mantle Zealot"
+    ],
+    "enc:\\\\x121F\\\\x957F\\\\x95C5\\\\x320B": [
+      "White Mantle Seeker"
+    ],
     "enc:\\\\x1230\\\\x9354\\\\x94B4\\\\x654F": [
       "Agent 436",
       "Bone Horror"
+    ],
+    "enc:\\\\x1231\\\\xFA22\\\\xB883\\\\x6EC7": [
+      "Agent 143",
+      "Agent 149",
+      "Agent 205",
+      "Bone Fiend",
+      "Agent 213"
     ],
     "enc:\\\\x1232\\\\xF535\\\\x05E0": [
       "Agent 160",
       "Agent 191",
       "Bone Minion"
+    ],
+    "enc:\\\\x129B\\\\xFEDB\\\\x9FCC\\\\x6018": [
+      "Agent 42",
+      "Agent 43",
+      "Thorn Stalker"
+    ],
+    "enc:\\\\x12A4\\\\x91DE\\\\xA2E5\\\\x4108": [
+      "Agent 47",
+      "Agent 48",
+      "Agent 51",
+      "Agent 52",
+      "Jungle Troll"
     ],
     "enc:\\\\x12A7\\\\xF511\\\\xCDD1\\\\x22D3": [
       "Obsidian Behemoth"
@@ -185,6 +407,99 @@
       "Agent 326",
       "Agent 327"
     ],
+    "enc:\\\\x12E3\\\\xB6D1\\\\xE860\\\\x6367": [
+      "Agent 206",
+      "Carrion Devourer"
+    ],
+    "enc:\\\\x12F2\\\\xF630\\\\xAA59\\\\x46F3": [
+      "Agent 207",
+      "Plague Devourer"
+    ],
+    "enc:\\\\x12F5\\\\xEBF3\\\\xBFFA\\\\x7341": [
+      "Agent 97",
+      "Whiptail Devourer"
+    ],
+    "enc:\\\\x12F9\\\\xA18A\\\\xC10C\\\\x4CD5": [
+      "Ignis Phanaura"
+    ],
+    "enc:\\\\x12FB\\\\xBD2A\\\\x21DB": [
+      "Rif Telourau"
+    ],
+    "enc:\\\\x1300\\\\xF320\\\\xEC2B\\\\x4766": [
+      "Shatter Gargoyle"
+    ],
+    "enc:\\\\x1302\\\\xC334\\\\xC366\\\\x581B": [
+      "Flash Gargoyle"
+    ],
+    "enc:\\\\x1305\\\\xF7AE\\\\x871B\\\\x196D": [
+      "Resurrect Gargoyle"
+    ],
+    "enc:\\\\x1310\\\\xD0A5\\\\xE602\\\\x4599": [
+      "Hydra"
+    ],
+    "enc:\\\\x1313\\\\xC9F5\\\\x895E\\\\x2E89": [
+      "Singed Oak"
+    ],
+    "enc:\\\\x1345\\\\xF1BB\\\\xC13D\\\\x195B": [
+      "Agent 20",
+      "Shiverpeak Warrior"
+    ],
+    "enc:\\\\x1346\\\\x8BE6\\\\xBAA6\\\\x2D9F": [
+      "Agent 54",
+      "Shiverpeak Longbow"
+    ],
+    "enc:\\\\x135C\\\\xB57D\\\\xA5B5\\\\x7406": [
+      "Blessed Griffon"
+    ],
+    "enc:\\\\x136C\\\\xC184\\\\xCF88\\\\x440B": [
+      "Ice Imp"
+    ],
+    "enc:\\\\x13D2\\\\xC00C\\\\xEB57\\\\x223A": [
+      "Agent 31",
+      "Enslaved Ettin"
+    ],
+    "enc:\\\\x1477\\\\x9D41\\\\xCA16\\\\x3F5D": [
+      "Hellhound"
+    ],
+    "enc:\\\\x1479\\\\xACFC\\\\xCEEC\\\\x3792": [
+      "Agent 88",
+      "Wraith"
+    ],
+    "enc:\\\\x147C\\\\xD250\\\\xD2FF\\\\x6A5E": [
+      "Grasping Ghoul"
+    ],
+    "enc:\\\\x1482\\\\xAC64\\\\xC1CC\\\\x7C86": [
+      "Agent 66",
+      "Smoke Phantom"
+    ],
+    "enc:\\\\x1483\\\\xC2FC\\\\x116A": [
+      "Skeleton Mesmer"
+    ],
+    "enc:\\\\x1484\\\\xD376\\\\x83BD\\\\x3E10": [
+      "Skeleton Sorcerer"
+    ],
+    "enc:\\\\x1485\\\\xC01E\\\\xF1B1\\\\x4B04": [
+      "Skeleton Monk"
+    ],
+    "enc:\\\\x148C\\\\x81F0\\\\xB629\\\\x3CAD": [
+      "Skeleton Ranger"
+    ],
+    "enc:\\\\x148D\\\\xEBA9\\\\xB9C8\\\\x4BF2": [
+      "Skeleton Bowmaster"
+    ],
+    "enc:\\\\x148F\\\\xBD0F\\\\xC152\\\\x5748": [
+      "Bone Dragon"
+    ],
+    "enc:\\\\x1491\\\\xD7F1\\\\xAF39\\\\x3A8B": [
+      "Damned Cleric"
+    ],
+    "enc:\\\\x1494\\\\xF555\\\\xE8A2\\\\x1FF9": [
+      "Zombie Warlock"
+    ],
+    "enc:\\\\x1495\\\\x8ADE\\\\xBC83\\\\x646F": [
+      "Agent 32",
+      "Necrid Horseman"
+    ],
     "enc:\\\\x14CE\\\\xA4C5\\\\x8BD5\\\\x0CD6": [
       "Shadow Mesmer"
     ],
@@ -233,6 +548,132 @@
       "Agent 126",
       "Agent 213"
     ],
+    "enc:\\\\x3F9D\\\\xC48A\\\\xA020\\\\x1DF5": [
+      "Agent 60",
+      "Mantis Hunter"
+    ],
+    "enc:\\\\x3FA4\\\\xF198\\\\x53E7": [
+      "Agent 48",
+      "Chkkr Thousand Tail"
+    ],
+    "enc:\\\\x3FA7\\\\x9D56\\\\xE858\\\\x0B6F": [
+      "Agent 61",
+      "Mantis Stormcaller"
+    ],
+    "enc:\\\\x3FA8\\\\x86A6\\\\x1EDC": [
+      "Agent 59",
+      "Mantis Mender"
+    ],
+    "enc:\\\\x3FB8\\\\xAC43\\\\x98C9\\\\x10E2": [
+      "Agent 40",
+      "Dragon Moss"
+    ],
+    "enc:\\\\x3FD0\\\\xCD86\\\\xB276\\\\x5DB7": [
+      "Agent 51",
+      "Warden of the Spirit"
+    ],
+    "enc:\\\\x3FD1\\\\xEA72\\\\xF179\\\\x760B": [
+      "Agent 57",
+      "Warden of the Mind"
+    ],
+    "enc:\\\\x3FD2\\\\xEAF1\\\\x8616\\\\x411D": [
+      "Agent 53",
+      "Warden of Earth"
+    ],
+    "enc:\\\\x3FD3\\\\xCB44\\\\xBC97\\\\x7682": [
+      "Agent 56",
+      "Warden of the Tree"
+    ],
+    "enc:\\\\x3FD4\\\\xEDAB\\\\xC486\\\\x64DE": [
+      "Agent 58",
+      "Warden of Forests"
+    ],
+    "enc:\\\\x3FD6\\\\xCD1F\\\\xF38E\\\\x78D7": [
+      "Agent 52",
+      "Warden of the Branch"
+    ],
+    "enc:\\\\x3FD7\\\\xCE28\\\\x8238\\\\x684D": [
+      "Agent 62",
+      "Warden of Winds"
+    ],
+    "enc:\\\\x3FD9\\\\x8122\\\\xF8A7\\\\x6EA7": [
+      "Agent 58",
+      "Warden of the Summer"
+    ],
+    "enc:\\\\x3FDA\\\\xBDBC\\\\xEBEA\\\\x1098": [
+      "Agent 49",
+      "Warden of Seasons"
+    ],
+    "enc:\\\\x3FDC\\\\xE327\\\\x7FE4": [
+      "Agent 59",
+      "Sickened Bear"
+    ],
+    "enc:\\\\x3FDD\\\\xC859\\\\x4DD4": [
+      "Agent 38",
+      "Sickened Moa"
+    ],
+    "enc:\\\\x3FDE\\\\xF217\\\\x8C9A\\\\x1569": [
+      "Agent 116",
+      "Sickened Lynx"
+    ],
+    "enc:\\\\x3FDF\\\\xC1B9\\\\xE564\\\\x2514": [
+      "Agent 68",
+      "Sickened Stalker"
+    ],
+    "enc:\\\\x3FE0\\\\xF120\\\\x84CB\\\\x033E": [
+      "Agent 57",
+      "Sickened Warthog"
+    ],
+    "enc:\\\\x3FE1\\\\x91DB\\\\xB157\\\\x39F7": [
+      "Agent 129",
+      "Sickened Wolf"
+    ],
+    "enc:\\\\x3FE5\\\\xC816\\\\x9C47\\\\x5845": [
+      "Agent 25",
+      "Agent 26",
+      "Sickened Guard"
+    ],
+    "enc:\\\\x3FF0\\\\xC534\\\\xA638\\\\x0E9C": [
+      "Agent 56",
+      "Sickened Scribe"
+    ],
+    "enc:\\\\x3FF1\\\\x91EB\\\\xF544\\\\x77EB": [
+      "Agent 130",
+      "Sickened Servant"
+    ],
+    "enc:\\\\x3FF2\\\\xC987\\\\x8579\\\\x1F01": [
+      "Afflicted Assassin"
+    ],
+    "enc:\\\\x3FFE\\\\x9A9E\\\\x9000\\\\x541F": [
+      "Agent 34",
+      "Afflicted Horror"
+    ],
+    "enc:\\\\x401B\\\\xE668\\\\xC286\\\\x1FE3": [
+      "Agent 277",
+      "Afflicted Necromancer"
+    ],
+    "enc:\\\\x401E\\\\x8B4E\\\\xE7F8\\\\x3BA6": [
+      "Afflicted Elementalist"
+    ],
+    "enc:\\\\x4022\\\\xF900\\\\x9C15\\\\x4CE9": [
+      "Agent 312",
+      "Afflicted Elementalist"
+    ],
+    "enc:\\\\x4029\\\\xBFED\\\\xF0DA\\\\x7B83": [
+      "Agent 278",
+      "Afflicted Monk"
+    ],
+    "enc:\\\\x402C\\\\x8302\\\\xF3BE\\\\x5BFE": [
+      "Afflicted Warrior"
+    ],
+    "enc:\\\\x4030\\\\x8AC3\\\\xCD45\\\\x48A2": [
+      "Agent 321",
+      "Afflicted Warrior"
+    ],
+    "enc:\\\\x4037\\\\xA8BE\\\\xF268\\\\x0902": [
+      "Agent 306",
+      "Afflicted Ranger"
+    ],
     "enc:\\\\x4045\\\\xC5F3\\\\xD79D\\\\x731F": [
       "Agent 109",
       "Tiger",
@@ -241,6 +682,56 @@
       "Agent 62",
       "Agent 38",
       "Agent 59"
+    ],
+    "enc:\\\\x4062\\\\xE1E0\\\\xAE93\\\\x20C6": [
+      "Agent 11",
+      "Mantid Drone",
+      "Agent 25"
+    ],
+    "enc:\\\\x4063\\\\x88F4\\\\x9BB2\\\\x45C9": [
+      "Agent 22",
+      "Agent 25",
+      "Mantid Parasite"
+    ],
+    "enc:\\\\x4066\\\\xFF9D\\\\x0893": [
+      "Agent 19",
+      "Agent 24",
+      "Mantid Darkwing"
+    ],
+    "enc:\\\\x4068\\\\x8F5A\\\\xF1AB\\\\x5523": [
+      "Mantid Monitor",
+      "Agent 35"
+    ],
+    "enc:\\\\x4069\\\\xC6DD\\\\x9E2F\\\\x0439": [
+      "Agent 23",
+      "Agent 26",
+      "Mantid Gazer"
+    ],
+    "enc:\\\\x406B\\\\xCBEB\\\\x8C41\\\\x710F": [
+      "Agent 37",
+      "Mantid Queen"
+    ],
+    "enc:\\\\x406C\\\\xA195\\\\xFDFD\\\\x7131": [
+      "Agent 18",
+      "Agent 21",
+      "Mantid Glitterfang"
+    ],
+    "enc:\\\\x406D\\\\xFD2B\\\\xBA86\\\\x4E2D": [
+      "Agent 20",
+      "Mantid Monitor Hatchling"
+    ],
+    "enc:\\\\x4074\\\\xAD8B\\\\x9A40\\\\x0944": [
+      "Naga Spellblade"
+    ],
+    "enc:\\\\x4077\\\\xF2BC\\\\xA29D\\\\x23A8": [
+      "Naga Welp"
+    ],
+    "enc:\\\\x407A\\\\x8E81\\\\x5D9B": [
+      "Naga Sibyl"
+    ],
+    "enc:\\\\x4088\\\\x9412\\\\xAF4C\\\\x68D3": [
+      "Kappa",
+      "Agent 41"
     ],
     "enc:\\\\x40A4\\\\xA54C\\\\xB187\\\\x4F59": [
       "Rot Wallow",
@@ -336,8 +827,27 @@
       "Agent 128",
       "Agent 119"
     ],
+    "enc:\\\\x4155\\\\x84CC\\\\x8A6B\\\\x29F9": [
+      "Agent 105",
+      "Vampiric Horror"
+    ],
+    "enc:\\\\x415B\\\\xF316\\\\xFC84\\\\x7BA6": [
+      "Agent 160",
+      "Spirit of Laceration"
+    ],
+    "enc:\\\\x415E\\\\xA59C\\\\x97CB\\\\x25E8": [
+      "Agent 234",
+      "Spirit of Equinox"
+    ],
+    "enc:\\\\x4160\\\\x82A6\\\\x68E7": [
+      "Spirit of Conflagration"
+    ],
     "enc:\\\\x4161\\\\xA291\\\\xB856\\\\x0259": [
       "Spirit of Famine"
+    ],
+    "enc:\\\\x4162\\\\xB553\\\\x1F76": [
+      "Agent 162",
+      "Spirit of Brambles"
     ],
     "enc:\\\\x4163\\\\x8C20\\\\xFD77\\\\x39DC": [
       "Spirit of Shadowsong",
@@ -351,7 +861,8 @@
       "Agent 123",
       "Agent 87",
       "Agent 126",
-      "Agent 75"
+      "Agent 75",
+      "Agent 78"
     ],
     "enc:\\\\x4164\\\\x825C\\\\xA2F2\\\\x1235": [
       "Agent 85",
@@ -365,7 +876,9 @@
       "Agent 188",
       "Agent 93",
       "Agent 191",
-      "Agent 190"
+      "Agent 190",
+      "Agent 123",
+      "Agent 120"
     ],
     "enc:\\\\x4165\\\\xAA52\\\\x6E73": [
       "Agent 120",
@@ -376,7 +889,12 @@
       "Agent 191",
       "Agent 66",
       "Agent 95",
-      "Agent 200"
+      "Agent 200",
+      "Agent 160"
+    ],
+    "enc:\\\\x4166\\\\xC58F\\\\xC9EF\\\\x6608": [
+      "Agent 366",
+      "Spirit of Soothing"
     ],
     "enc:\\\\x4167\\\\x8FC3\\\\x08B6": [
       "Spirit of Displacement",
@@ -389,6 +907,46 @@
       "Agent 211",
       "Agent 199",
       "Agent 73"
+    ],
+    "enc:\\\\x4168\\\\xE950\\\\x9424\\\\x0FD0": [
+      "Agent 376",
+      "Spirit of Preservation"
+    ],
+    "enc:\\\\x4169\\\\xA4F6\\\\x90DB\\\\x05AE": [
+      "Agent 162",
+      "Spirit of Life"
+    ],
+    "enc:\\\\x416A\\\\xF454\\\\xADBC\\\\x1121": [
+      "Agent 158",
+      "Spirit of Recuperation"
+    ],
+    "enc:\\\\x416B\\\\xA154\\\\xB5A8\\\\x0E43": [
+      "Agent 74",
+      "Spirit of Dissonance"
+    ],
+    "enc:\\\\x4170\\\\xEC42\\\\x8C5C\\\\x55CF": [
+      "Agent 369",
+      "Spirit of Restoration"
+    ],
+    "enc:\\\\x4171\\\\xCD7A\\\\xD7A6\\\\x386D": [
+      "Agent 72",
+      "Spirit of Blood Song"
+    ],
+    "enc:\\\\x4172\\\\xEB8F\\\\x8D59\\\\x7008": [
+      "Agent 120",
+      "Spirit of Wanderlust"
+    ],
+    "enc:\\\\x4B30\\\\x8C3C\\\\xB1D2\\\\x4809": [
+      "Agent 48",
+      "Sickened Guardsman Tahnjo"
+    ],
+    "enc:\\\\x4B71\\\\xCDDD\\\\xE5CC\\\\x3DA8": [
+      "Agent 6",
+      "Diseased Soldier"
+    ],
+    "enc:\\\\x4B72\\\\xE2E8\\\\xC85E\\\\x23A1": [
+      "Agent 132",
+      "Diseased Minister"
     ],
     "enc:\\\\x7B64\\\\x95DB\\\\xAB29\\\\x1430": [
       "Kournan Seer"
@@ -416,6 +974,10 @@
     ],
     "enc:\\\\x8101\\\\x04F4\\\\xC70B\\\\xF5EA\\\\x0534": [
       "Ruby Djinn"
+    ],
+    "enc:\\\\x8101\\\\x0571\\\\xB066\\\\xB1FE\\\\x6EF7": [
+      "Agent 19",
+      "Mantid Drone Hatchling"
     ],
     "enc:\\\\x8101\\\\x05D9\\\\xF9DC\\\\x61C7": [
       "Sapphire Djinn"
@@ -456,6 +1018,10 @@
     ],
     "enc:\\\\x8101\\\\x08B9\\\\xEA3C\\\\xCF2C\\\\x55E0": [
       "Whistling Thornbrush"
+    ],
+    "enc:\\\\x8101\\\\x08D4\\\\xCC9D\\\\xED35\\\\x279C": [
+      "Agent 4",
+      "Kournan Guard"
     ],
     "enc:\\\\x8101\\\\x09C2\\\\x8FDA\\\\x911A\\\\x46E7": [
       "Skree Griffin"
@@ -502,6 +1068,9 @@
     "enc:\\\\x8101\\\\x1187\\\\xE433\\\\x93A6\\\\x47E1": [
       "Rampaging Ntouka"
     ],
+    "enc:\\\\x8101\\\\x1365\\\\xF815\\\\x3378": [
+      "Erulai the Inimical"
+    ],
     "enc:\\\\x8101\\\\x1554\\\\xA7EB\\\\x3D37": [
       "Immolated Djinn"
     ],
@@ -526,6 +1095,19 @@
     "enc:\\\\x8101\\\\x1B62\\\\xB276\\\\xD027\\\\x6A68": [
       "Margonite Anur Mank"
     ],
+    "enc:\\\\x8101\\\\x1C7D\\\\x8E4A\\\\xA32C\\\\x013A": [
+      "Corsair Wizard"
+    ],
+    "enc:\\\\x8101\\\\x1C7F\\\\xEFCA\\\\x9E8D\\\\x5DD1": [
+      "Corsair Cook"
+    ],
+    "enc:\\\\x8101\\\\x1C81\\\\x99EB\\\\x837C\\\\x5EC0": [
+      "Corsair Cutthroat"
+    ],
+    "enc:\\\\x8101\\\\x1C82\\\\xC173\\\\x7C8F": [
+      "Agent 45",
+      "Corsair Raider"
+    ],
     "enc:\\\\x8101\\\\x1CCF\\\\xA335\\\\xE8A0\\\\x6C92": [
       "Kormab, Burning Heart"
     ],
@@ -541,23 +1123,98 @@
     "enc:\\\\x8101\\\\x1CE5\\\\xA453\\\\x2ADD": [
       "Shezel Slowreaper"
     ],
+    "enc:\\\\x8101\\\\x210C\\\\x95BE\\\\x3A6E": [
+      "Agent 62",
+      "Ridgeback Skale"
+    ],
+    "enc:\\\\x8101\\\\x210D\\\\x8FF4\\\\xF02B\\\\x6725": [
+      "Agent 63",
+      "Skale Lasher"
+    ],
+    "enc:\\\\x8101\\\\x210F\\\\xD5A1\\\\xB598\\\\x577E": [
+      "Juvenile Bladed Termite"
+    ],
+    "enc:\\\\x8101\\\\x2112\\\\xAE1A\\\\xA228\\\\x5B85": [
+      "Bladed Termite"
+    ],
+    "enc:\\\\x8101\\\\x2115\\\\x92CF\\\\x03B4": [
+      "Stormseed Jacaranda"
+    ],
+    "enc:\\\\x8101\\\\x2116\\\\xA93A\\\\xFC9B\\\\x2407": [
+      "Fanged Iboga"
+    ],
     "enc:\\\\x8101\\\\x45D5\\\\xEC58\\\\x881D\\\\x5589": [
       "Agent 216",
       "Jahai Rat"
     ],
+    "enc:\\\\x8101\\\\x4651\\\\x98C5\\\\xA7A1\\\\x708D": [
+      "Grub Lance"
+    ],
+    "enc:\\\\x8101\\\\x4652\\\\xBF41\\\\xB074\\\\x4D76": [
+      "Preying Lance"
+    ],
+    "enc:\\\\x8101\\\\x4656\\\\xAF22\\\\xAF35\\\\x72C1": [
+      "Fanged Iboga"
+    ],
+    "enc:\\\\x8101\\\\x4657\\\\xC7D2\\\\x8CEE\\\\x09E2": [
+      "Agent 37",
+      "Fanged Iboga"
+    ],
+    "enc:\\\\x8101\\\\x4658\\\\x9DC1\\\\x7476": [
+      "Stormseed Jacaranda"
+    ],
+    "enc:\\\\x8101\\\\x4659\\\\xBBE3\\\\xE459\\\\x1183": [
+      "Agent 36",
+      "Stormseed Jacaranda"
+    ],
+    "enc:\\\\x8101\\\\x465C\\\\xC826\\\\x92E9\\\\x3A2B": [
+      "Agent 189",
+      "Skale Blighter"
+    ],
+    "enc:\\\\x8101\\\\x4663\\\\xB1BF\\\\xB8A4\\\\x1BCA": [
+      "Skale Lasher"
+    ],
     "enc:\\\\x8101\\\\x46AB\\\\xB705\\\\x0EB7": [
       "Steelfang Drake"
+    ],
+    "enc:\\\\x8101\\\\x46D7\\\\xCD1D\\\\xBE32\\\\x61B6": [
+      "Corsair Lookout"
+    ],
+    "enc:\\\\x8101\\\\x46E2\\\\x9C0C\\\\xA2CC\\\\x4592": [
+      "Agent 44",
+      "Corsair Captain"
     ],
     "enc:\\\\x8101\\\\x4731\\\\x9857\\\\x863A\\\\x3B88": [
       "Spirit of Infuriating Heat"
     ],
     "enc:\\\\x8101\\\\x4732\\\\x94F8\\\\xC308\\\\x2763": [
       "Agent 129",
-      "Spirit of Toxicity"
+      "Spirit of Toxicity",
+      "Agent 66"
+    ],
+    "enc:\\\\x8101\\\\x4733\\\\x9216\\\\x9376\\\\x6F22": [
+      "Agent 78",
+      "Spirit of Quicksand",
+      "Agent 67",
+      "Agent 167"
     ],
     "enc:\\\\x8101\\\\x4735\\\\xAEF1\\\\x9C2E\\\\x28EF": [
       "Agent 311",
       "Jagged Horror"
+    ],
+    "enc:\\\\x8101\\\\x4737\\\\xE78D\\\\x9F9E\\\\x59B9": [
+      "Agent 143",
+      "Spirit of Anguish"
+    ],
+    "enc:\\\\x8101\\\\x473A\\\\xFF97\\\\x44BF": [
+      "Agent 164",
+      "Spirit of Fury"
+    ],
+    "enc:\\\\x8101\\\\x49E9\\\\xF9E0\\\\xA6B9\\\\x0D10": [
+      "Stalking Nephila"
+    ],
+    "enc:\\\\x8101\\\\x49EB\\\\xA26F\\\\x9E48\\\\x5FB3": [
+      "Stalking Nephila"
     ],
     "enc:\\\\x8101\\\\x4C88\\\\xB01C\\\\xF31C\\\\x3879": [
       "Kournan Guard"
@@ -672,41 +1329,592 @@
     "enc:\\\\x8101\\\\x5DCF\\\\xC6E5\\\\x1747": [
       "Elder Crocodile"
     ],
+    "enc:\\\\x8101\\\\x6757\\\\xC09A\\\\xCEDF\\\\x4EDA": [
+      "Agent 44",
+      "Agent 47",
+      "Blade of Corruption"
+    ],
+    "enc:\\\\x8101\\\\x6758\\\\xEF89\\\\x8DB2\\\\x4172": [
+      "Agent 48",
+      "Arm of Insanity"
+    ],
+    "enc:\\\\x8101\\\\x73C1\\\\xA349\\\\xC6E3\\\\x44FE": [
+      "Agent 27",
+      "Agent 28",
+      "Agent 29",
+      "Cloudtouched Simian"
+    ],
+    "enc:\\\\x8101\\\\x73C2\\\\xB3D3\\\\x71E4": [
+      "Agent 30",
+      "Agent 31",
+      "Redhand Simian"
+    ],
+    "enc:\\\\x8101\\\\x73C3\\\\xC020\\\\x36A7": [
+      "Agent 29",
+      "Simian Spiritcaller"
+    ],
     "enc:\\\\x8101\\\\x743B\\\\x9705\\\\x9068\\\\x1DFD": [
       "Agent 118",
       "Mystic Mandragor"
     ],
+    "enc:\\\\x8101\\\\x743C\\\\xA6FF\\\\x87EB\\\\x0E59": [
+      "Agent 306",
+      "Modniir Priest",
+      "Agent 56",
+      "Agent 33"
+    ],
+    "enc:\\\\x8101\\\\x743D\\\\xEC98\\\\x990C\\\\x78F8": [
+      "Agent 45",
+      "Modniir Berserker",
+      "Agent 307",
+      "Agent 50",
+      "Agent 17"
+    ],
+    "enc:\\\\x8101\\\\x743E\\\\xF0A0\\\\xAB26\\\\x5924": [
+      "Agent 41",
+      "Modniir Hunter",
+      "Agent 308",
+      "Agent 39",
+      "Agent 50"
+    ],
+    "enc:\\\\x8101\\\\x7495\\\\x81EA\\\\xD0F2\\\\x62D2": [
+      "Agent 39",
+      "Grawl Dark Priest"
+    ],
+    "enc:\\\\x8101\\\\x7496\\\\xA890\\\\xD4C3\\\\x7665": [
+      "Agent 37",
+      "Agent 38",
+      "Grawl Champion"
+    ],
+    "enc:\\\\x8101\\\\x7497\\\\xBE32\\\\xE72D\\\\x0740": [
+      "Agent 370",
+      "Grawl Demagogue"
+    ],
+    "enc:\\\\x8101\\\\x7498\\\\xBBE7\\\\x9DEA\\\\x45DB": [
+      "Agent 161",
+      "Mantid Nymph"
+    ],
+    "enc:\\\\x8101\\\\x749A\\\\xFAA4\\\\xC686\\\\x3789": [
+      "Agent 160",
+      "Mantid Queen"
+    ],
+    "enc:\\\\x8101\\\\x749B\\\\x93C6\\\\x0836": [
+      "Agent 147",
+      "Deadly Skale"
+    ],
+    "enc:\\\\x8101\\\\x749C\\\\x9407\\\\xF0A7\\\\x33CF": [
+      "Agent 63",
+      "Skale Lasher"
+    ],
+    "enc:\\\\x8101\\\\x749D\\\\x8251\\\\x17D5": [
+      "Agent 214",
+      "Swampwater Skale"
+    ],
+    "enc:\\\\x8101\\\\x749E\\\\x9B25\\\\xF9B0\\\\x5373": [
+      "Agent 53",
+      "Vile Mandragor"
+    ],
+    "enc:\\\\x8101\\\\x749F\\\\xBFAE\\\\xB553\\\\x4AA9": [
+      "Agent 54",
+      "Mandragor Dust Devil"
+    ],
+    "enc:\\\\x8101\\\\x74C7\\\\x8967\\\\xA6DD\\\\x6792": [
+      "Avalanche",
+      "Agent 327"
+    ],
     "enc:\\\\x8101\\\\x74C8\\\\xB7B4\\\\x9EAA\\\\x6368": [
-      "Frozen Elemental"
+      "Frozen Elemental",
+      "Agent 54",
+      "Agent 55",
+      "Agent 61",
+      "Agent 62",
+      "Agent 63"
+    ],
+    "enc:\\\\x8101\\\\x74C9\\\\xC892\\\\xE27C\\\\x1047": [
+      "Agent 322",
+      "Chilling Wisp"
     ],
     "enc:\\\\x8101\\\\x74CA\\\\xFED0\\\\x6654": [
-      "Jotun Skullsmasher"
+      "Jotun Skullsmasher",
+      "Agent 17",
+      "Agent 48",
+      "Agent 40",
+      "Agent 41"
     ],
     "enc:\\\\x8101\\\\x74CB\\\\xAA1B\\\\x9A39\\\\x343A": [
-      "Jotun Mindbreaker"
+      "Jotun Mindbreaker",
+      "Agent 25",
+      "Agent 48"
     ],
     "enc:\\\\x8101\\\\x74CC\\\\x9849\\\\x3A07": [
-      "Jotun Bloodcurdler"
+      "Jotun Bloodcurdler",
+      "Agent 52",
+      "Agent 25"
     ],
     "enc:\\\\x8101\\\\x74CD\\\\xA87B\\\\xE2A7\\\\x0440": [
-      "Berserking Minotaur"
+      "Berserking Minotaur",
+      "Agent 58",
+      "Agent 315",
+      "Agent 49"
     ],
     "enc:\\\\x8101\\\\x74CE\\\\xED2C\\\\xA18B\\\\x3637": [
-      "Berserking Bison"
+      "Berserking Bison",
+      "Agent 246",
+      "Agent 43"
+    ],
+    "enc:\\\\x8101\\\\x74D1\\\\xCBA1\\\\xB77E\\\\x5BF4": [
+      "Mountain Pinesoul",
+      "Agent 46",
+      "Agent 40"
+    ],
+    "enc:\\\\x8101\\\\x74D2\\\\x9E38\\\\xBAA6\\\\x2157": [
+      "Mountain Aloe"
     ],
     "enc:\\\\x8101\\\\x74D3\\\\xAC1F\\\\x812B\\\\x4E47": [
       "Spectral Vaettir"
+    ],
+    "enc:\\\\x8101\\\\x74D5\\\\xC2B6\\\\xD335\\\\x1B3B": [
+      "Ulcerous Mandragor"
     ],
     "enc:\\\\x8101\\\\x74D6\\\\xF9FA\\\\xE48E\\\\x6905": [
       "Agent 254",
       "Mandragor Scavenger"
     ],
+    "enc:\\\\x8101\\\\x74FE\\\\xE934\\\\xA275\\\\x1228": [
+      "Agent 41",
+      "Agent 42",
+      "Skelk Slasher"
+    ],
+    "enc:\\\\x8101\\\\x74FF\\\\x8636\\\\x21B2": [
+      "Agent 40",
+      "Skelk Corrupter"
+    ],
+    "enc:\\\\x8101\\\\x7500\\\\x9C47\\\\xEDC2\\\\x4FF0": [
+      "Agent 39",
+      "Skelk Rampager"
+    ],
+    "enc:\\\\x8101\\\\x7504\\\\xB836\\\\x901F\\\\x54BB": [
+      "Agent 217",
+      "Agent 218",
+      "Agent 219",
+      "Agent 220",
+      "Terrorbond Dryder"
+    ],
+    "enc:\\\\x8101\\\\x7506\\\\xEC2E\\\\xFC32\\\\x43D8": [
+      "Agent 62",
+      "Burning Spirit"
+    ],
+    "enc:\\\\x8101\\\\x7507\\\\xCDD9\\\\x92FB\\\\x580C": [
+      "Agent 389",
+      "Flowstone Elemental"
+    ],
+    "enc:\\\\x8101\\\\x7508\\\\xA146\\\\xE69E\\\\x2CFD": [
+      "Agent 236",
+      "Shattered Elemental"
+    ],
+    "enc:\\\\x8101\\\\x7509\\\\xB6AB\\\\x9CC0\\\\x15A9": [
+      "Agent 248",
+      "Icy Stalagmite"
+    ],
+    "enc:\\\\x8101\\\\x750A\\\\x8AF5\\\\xC2E0\\\\x110A": [
+      "Agent 140",
+      "Whirling Wisp"
+    ],
+    "enc:\\\\x8101\\\\x7515\\\\xE1D5\\\\x857C\\\\x0B27": [
+      "Agent 271",
+      "Shimmering Ooze"
+    ],
+    "enc:\\\\x8101\\\\x7516\\\\xC443\\\\xE8FF\\\\x580D": [
+      "Agent 289",
+      "Ominous Ooze"
+    ],
+    "enc:\\\\x8101\\\\x7518\\\\xF94F\\\\xEC97\\\\x01DA": [
+      "Agent 71",
+      "Aggressive Ooze"
+    ],
+    "enc:\\\\x8101\\\\x757E\\\\xC49E\\\\xE912\\\\x6EE4": [
+      "Seer Fiercereign"
+    ],
+    "enc:\\\\x8101\\\\x7585\\\\x17C62\\\\x0764": [
+      "Agent 63",
+      "Charr Dominator",
+      "Agent 129",
+      "Agent 195"
+    ],
+    "enc:\\\\x8101\\\\x7586\\\\x8188\\\\xD49B\\\\x099B": [
+      "Agent 132",
+      "Charr Hexreaper"
+    ],
+    "enc:\\\\x8101\\\\x75F3\\\\xD238\\\\xC5A5\\\\x31E2": [
+      "Gron Fierceclaw"
+    ],
+    "enc:\\\\x8101\\\\x75F8\\\\xD515\\\\xEBB1\\\\x2BBC": [
+      "Agent 42",
+      "Charr Flameshielder",
+      "Agent 157",
+      "Agent 45"
+    ],
+    "enc:\\\\x8101\\\\x75F9\\\\x8121\\\\x2E58": [
+      "Agent 41",
+      "Charr Prophet",
+      "Agent 58",
+      "Agent 44"
+    ],
+    "enc:\\\\x8101\\\\x75FA\\\\xC509\\\\xFF9E\\\\x019F": [
+      "Agent 54",
+      "Charr Axemaster",
+      "Agent 139",
+      "Agent 26"
+    ],
+    "enc:\\\\x8101\\\\x75FB\\\\xFD26\\\\xF540\\\\x0B9F": [
+      "Agent 24",
+      "Agent 25",
+      "Agent 26",
+      "Agent 27",
+      "Charr Seeker",
+      "Agent 153",
+      "Agent 223"
+    ],
+    "enc:\\\\x8101\\\\x75FC\\\\x8754\\\\x4DB4": [
+      "Agent 146",
+      "Charr Wardkeeper",
+      "Agent 28",
+      "Agent 155"
+    ],
+    "enc:\\\\x8101\\\\x75FF\\\\xB024\\\\x723D": [
+      "Agent 25",
+      "Charr Bladestorm",
+      "Agent 41",
+      "Agent 42",
+      "Agent 43"
+    ],
+    "enc:\\\\x8101\\\\x7600\\\\xA418\\\\x943C\\\\x3F67": [
+      "Agent 25",
+      "Charr Avenger"
+    ],
+    "enc:\\\\x8101\\\\x761A\\\\x829C\\\\xBFCA\\\\x45D5": [
+      "Agent 53",
+      "Bloodweaver"
+    ],
+    "enc:\\\\x8101\\\\x761C\\\\xE6BD\\\\x8836\\\\x5AC8": [
+      "Agent 103",
+      "Venomweaver"
+    ],
+    "enc:\\\\x8101\\\\x761D\\\\xFA31\\\\xEDFD\\\\x58B4": [
+      "Charr Effigy"
+    ],
+    "enc:\\\\x8101\\\\x761E\\\\xB641\\\\xADD1\\\\x567F": [
+      "Agent 61",
+      "Devourer Catapult"
+    ],
+    "enc:\\\\x8101\\\\x761F\\\\xAFFD\\\\xB32E\\\\x0190": [
+      "Magma Blister"
+    ],
+    "enc:\\\\x8101\\\\x7621\\\\x9749\\\\xF677\\\\x5788": [
+      "Agent 118",
+      "Spider"
+    ],
+    "enc:\\\\x8101\\\\x763E\\\\xF0FC\\\\xE65A\\\\x63EC": [
+      "Agent 27",
+      "Krait Neoss"
+    ],
+    "enc:\\\\x8101\\\\x763F\\\\xBB0E\\\\x81C5\\\\x1481": [
+      "Agent 48",
+      "Albino Rat"
+    ],
+    "enc:\\\\x8101\\\\x7641\\\\xB831\\\\x9F20\\\\x4076": [
+      "Black Wolf",
+      "Agent 237",
+      "Agent 342"
+    ],
+    "enc:\\\\x8101\\\\x7643\\\\xE9D0\\\\xF0A1\\\\x34C0": [
+      "Agent 141",
+      "Mountain Eagle"
+    ],
     "enc:\\\\x8101\\\\x7644\\\\xE510\\\\x89BC\\\\x5D04": [
       "Agent 150",
-      "Polar Bear"
+      "Polar Bear",
+      "Agent 53"
+    ],
+    "enc:\\\\x8101\\\\x7645\\\\xF6E7\\\\x69F7": [
+      "Agent 43",
+      "Krait Hypnoss"
+    ],
+    "enc:\\\\x8101\\\\x7647\\\\x8B99\\\\xD397\\\\x19D4": [
+      "Agent 15",
+      "Krait Arcanoss"
+    ],
+    "enc:\\\\x8101\\\\x764A\\\\xBAFF\\\\xB3C7\\\\x76C2": [
+      "Agent 29",
+      "Krait Neoss"
+    ],
+    "enc:\\\\x8101\\\\x76BB\\\\xE389\\\\xEBD2\\\\x5BB6": [
+      "Agent 28",
+      "Krait Neoss"
+    ],
+    "enc:\\\\x8101\\\\x76C0\\\\x9AD9\\\\x8483\\\\x76FA": [
+      "Agent 49",
+      "Charr Prison Guard"
+    ],
+    "enc:\\\\x8101\\\\x76C1\\\\x9972\\\\xD739\\\\x6B24": [
+      "Agent 24",
+      "Flamemaster Maultooth"
+    ],
+    "enc:\\\\x8101\\\\x76F5\\\\xD7E2\\\\xBB9C\\\\x284A": [
+      "Roan Fierceheart"
+    ],
+    "enc:\\\\x8101\\\\x76F6\\\\xFF86\\\\xD6FD\\\\x1152": [
+      "Cowl Fiercetongue"
+    ],
+    "enc:\\\\x8101\\\\x7710\\\\xA247\\\\x58DC": [
+      "Agent 33",
+      "Agent 34",
+      "Angorodon"
+    ],
+    "enc:\\\\x8101\\\\x7712\\\\xA1F7\\\\xBB82\\\\x5D5A": [
+      "Agent 170",
+      "Destroyer of Thoughts"
+    ],
+    "enc:\\\\x8101\\\\x7714\\\\x9DC9\\\\xBEA2\\\\x1DFD": [
+      "Agent 167",
+      "Destroyer of Hope"
+    ],
+    "enc:\\\\x8101\\\\x7716\\\\xB31E\\\\x317E": [
+      "Agent 139",
+      "Destroyer of Bones"
+    ],
+    "enc:\\\\x8101\\\\x771B\\\\x9AB8\\\\x2373": [
+      "Agent 149",
+      "Destroyer of Hordes"
+    ],
+    "enc:\\\\x8101\\\\x77A0\\\\xA3DB\\\\x7CDB": [
+      "Bonwor Fierceblade"
+    ],
+    "enc:\\\\x8101\\\\x77F8\\\\xA9F8\\\\xB914\\\\x5A9A": [
+      "Agent 76",
+      "Destroyer of Sinew"
+    ],
+    "enc:\\\\x8101\\\\x77F9\\\\xB655\\\\x9C32\\\\x2EA6": [
+      "Agent 80",
+      "Destroyer of Bones"
+    ],
+    "enc:\\\\x8101\\\\x77FA\\\\x8A2B\\\\xB2EF\\\\x4C94": [
+      "Agent 83",
+      "Destroyer of Flesh"
+    ],
+    "enc:\\\\x8101\\\\x782C\\\\xB14E\\\\xFB29\\\\x2ACD": [
+      "Agent 127",
+      "Snow Wurm"
+    ],
+    "enc:\\\\x8101\\\\x7833\\\\x9371\\\\xA27E\\\\x5914": [
+      "Agent 86",
+      "Fragment of Antiquities"
+    ],
+    "enc:\\\\x8101\\\\x7836\\\\x913B\\\\x9A4F\\\\x47D7": [
+      "Crypt Slasher"
+    ],
+    "enc:\\\\x8101\\\\x7844\\\\xCEC8\\\\x8496\\\\x59DA": [
+      "Shock Phantom"
+    ],
+    "enc:\\\\x8101\\\\x790C\\\\xE4FD\\\\xB49B\\\\x03C1": [
+      "Agent 55",
+      "Mandragor Shadowfang"
+    ],
+    "enc:\\\\x8101\\\\x790D\\\\x9881\\\\x1289": [
+      "Agent 129",
+      "Mantid Digger"
+    ],
+    "enc:\\\\x8101\\\\x790E\\\\x86AD\\\\xC046\\\\x2A2B": [
+      "Agent 107",
+      "Needling Lavastrider"
+    ],
+    "enc:\\\\x8101\\\\x7936\\\\xEC71\\\\x1E23": [
+      "Agent 39",
+      "Scorch Maulclaw"
+    ],
+    "enc:\\\\x8101\\\\x79D3\\\\x94A9\\\\x678D": [
+      "Skeleton Illusionist"
+    ],
+    "enc:\\\\x8101\\\\x79D4\\\\x837A\\\\xB0B2\\\\x26F7": [
+      "Agent 61",
+      "Agent 62",
+      "Skeleton Wizard"
+    ],
+    "enc:\\\\x8101\\\\x79D5\\\\xE7BF\\\\xD1DF\\\\x0235": [
+      "Skeleton Priest"
+    ],
+    "enc:\\\\x8101\\\\x79D8\\\\x931B\\\\xF82C\\\\x2236": [
+      "Agent 56",
+      "Agent 57",
+      "Agent 58",
+      "Zombie Brute"
+    ],
+    "enc:\\\\x8101\\\\x79DA\\\\xCA0B\\\\xB8D5\\\\x2BEA": [
+      "Agent 59",
+      "Agent 60",
+      "Zombie Necromancer"
+    ],
+    "enc:\\\\x8101\\\\x7AE1\\\\x9B61\\\\x99CC\\\\x0533": [
+      "Glacial Griffon"
+    ],
+    "enc:\\\\x8101\\\\x7B59\\\\x8FED\\\\xEB68\\\\x5A2E": [
+      "Armored Saurus"
+    ],
+    "enc:\\\\x8101\\\\x7B61\\\\xBD2C\\\\xC9DC\\\\x4AB6": [
+      "Agent 128",
+      "Hierophant Burntsoul"
+    ],
+    "enc:\\\\x8101\\\\x7B62\\\\xC066\\\\x9F25\\\\x4F20": [
+      "Agent 68",
+      "Elite Charr Guard"
+    ],
+    "enc:\\\\x8101\\\\x7BA5\\\\xF660\\\\x974E\\\\x76C1": [
+      "Agent 177",
+      "Mist Vaettir"
+    ],
+    "enc:\\\\x8101\\\\x7BA6\\\\xBB66\\\\xE73B\\\\x14C6": [
+      "Agent 240",
+      "Shadow Vaettir"
+    ],
+    "enc:\\\\x8101\\\\x7BA7\\\\xF7FD\\\\xD7C9\\\\x74C4": [
+      "Agent 392",
+      "Scourge Vaettir"
+    ],
+    "enc:\\\\x8101\\\\x7C26\\\\xB83F\\\\xC9BB\\\\x369B": [
+      "Agent 27",
+      "Harvest Soulreign"
+    ],
+    "enc:\\\\x8101\\\\x7C27\\\\x980B\\\\x13DB": [
+      "Agent 186",
+      "Frazar Frostfur"
+    ],
+    "enc:\\\\x8101\\\\x7C28\\\\xB83B\\\\xC520\\\\x542F": [
+      "Agent 28",
+      "Gordam Griefgiver"
+    ],
+    "enc:\\\\x8101\\\\x7C2A\\\\xF846\\\\xADE8\\\\x4670": [
+      "Agent 44",
+      "Agent 45",
+      "Charr Seeker"
+    ],
+    "enc:\\\\x8101\\\\x7C2D\\\\xEAAB\\\\xB2A4\\\\x6C09": [
+      "Agent 23",
+      "Charr Sentry"
+    ],
+    "enc:\\\\x8101\\\\x7C2E\\\\x9F6D\\\\xF644\\\\x2FD5": [
+      "Agent 21",
+      "Charr Hunter Beast"
+    ],
+    "enc:\\\\x8101\\\\x7D79\\\\xCFEB\\\\x85D6\\\\x42A4": [
+      "Facet of Destruction"
+    ],
+    "enc:\\\\x8101\\\\x7D7A\\\\xBB10\\\\xFC60\\\\x7639": [
+      "Facet of Death"
+    ],
+    "enc:\\\\x8101\\\\x7D7F\\\\xFF52\\\\xFB6A\\\\x6A5D": [
+      "Facet of Spirit"
+    ],
+    "enc:\\\\x8101\\\\x7D80\\\\xE652\\\\xB687\\\\x5548": [
+      "Facet of Existence"
+    ],
+    "enc:\\\\x8101\\\\x7D81\\\\x9AD0\\\\xEF2B\\\\x014A": [
+      "Facet of Illusions"
+    ],
+    "enc:\\\\x8101\\\\x7D82\\\\x98F6\\\\x9681\\\\x4899": [
+      "Facet of Creation"
+    ],
+    "enc:\\\\x8101\\\\x7F4C\\\\x93D5\\\\xD509\\\\x0A07": [
+      "Agent 220",
+      "Vile Mandragor"
     ],
     "enc:\\\\x8101\\\\x7F4D\\\\xFC50\\\\xD378\\\\x2E42": [
+      "Mandragor Smoke Devil",
+      "Agent 34",
+      "Agent 33"
+    ],
+    "enc:\\\\x8101\\\\x7F4F\\\\xC6E1\\\\xCA2E\\\\x0C33": [
+      "Agent 218",
       "Mandragor Smoke Devil"
+    ],
+    "enc:\\\\x8101\\\\x7F50\\\\xA0D6\\\\xA147\\\\x3BD1": [
+      "Agent 216",
+      "Mandragor Dust Devil"
+    ],
+    "enc:\\\\x8101\\\\x7F51\\\\xA9C8\\\\x4DB7": [
+      "Agent 214",
+      "Mandragor Shadowfang"
+    ],
+    "enc:\\\\x8101\\\\x7F5E\\\\xCC82\\\\xF803\\\\x6774": [
+      "Agent 134",
+      "Charr Firereigner"
+    ],
+    "enc:\\\\x8101\\\\x7F5F\\\\x8D59\\\\xCAB9\\\\x3562": [
+      "Agent 42",
+      "Charr Dominator"
+    ],
+    "enc:\\\\x8101\\\\x7F60\\\\xE446\\\\xD209\\\\x4D75": [
+      "Agent 43",
+      "Charr Prophet"
+    ],
+    "enc:\\\\x8101\\\\x7F61\\\\xD46E\\\\xD45E\\\\x0F04": [
+      "Charr Axemaster"
+    ],
+    "enc:\\\\x8101\\\\x7F64\\\\xC0F8\\\\x8DFF\\\\x049C": [
+      "Charr Seeker"
+    ],
+    "enc:\\\\x8101\\\\x7F65\\\\xF1D3\\\\xF50F\\\\x2A40": [
+      "Agent 95",
+      "Elite Charr Guard"
+    ],
+    "enc:\\\\x8101\\\\x7F66\\\\xCF83\\\\xA917\\\\x5457": [
+      "Agent 38",
+      "Charr Hunter Beast"
+    ],
+    "enc:\\\\x8102\\\\x03AF\\\\xF163\\\\xA23F\\\\x41FB": [
+      "Agent 409",
+      "Ignus the Eternal"
+    ],
+    "enc:\\\\x8102\\\\x0472\\\\xD05D\\\\xC665\\\\x12C5": [
+      "Agent 35",
+      "Charr Dominator"
+    ],
+    "enc:\\\\x8102\\\\x0473\\\\xF5D6\\\\xBD0F\\\\x17AB": [
+      "Agent 36",
+      "Charr Hexreaper"
+    ],
+    "enc:\\\\x8102\\\\x0474\\\\xFAE3\\\\x0DFB": [
+      "Agent 159",
+      "Charr Flameshielder"
+    ],
+    "enc:\\\\x8102\\\\x0475\\\\xCBAD\\\\xB3D3\\\\x390D": [
+      "Agent 42",
+      "Charr Mender"
+    ],
+    "enc:\\\\x8102\\\\x0476\\\\xF08E\\\\xB8B9\\\\x06ED": [
+      "Agent 169",
+      "Charr Axemaster"
+    ],
+    "enc:\\\\x8102\\\\x0477\\\\xE99F\\\\xE88C\\\\x50A7": [
+      "Agent 39",
+      "Charr Axemaster"
+    ],
+    "enc:\\\\x8102\\\\x0478\\\\xF501\\\\xC52C\\\\x3EFC": [
+      "Agent 114",
+      "Charr Blademaster"
+    ],
+    "enc:\\\\x8102\\\\x0479\\\\xBF03\\\\xFB57\\\\x15FF": [
+      "Agent 48",
+      "Charr Blademaster"
+    ],
+    "enc:\\\\x8102\\\\x047A\\\\xD1AE\\\\x966B\\\\x5DFA": [
+      "Agent 46",
+      "Charr Blademaster"
+    ],
+    "enc:\\\\x8102\\\\x047B\\\\xBF67\\\\x83FF\\\\x479D": [
+      "Agent 130",
+      "Agent 131",
+      "Agent 133",
+      "Charr Seeker"
     ],
     "enc:\\\\x8102\\\\x0482\\\\xBE12\\\\xB67F\\\\x1AF3": [
       "Stone Summit Herder"
@@ -714,18 +1922,440 @@
     "enc:\\\\x8102\\\\x0485\\\\xEE03\\\\xA33D\\\\x0809": [
       "Stone Summit Healer"
     ],
+    "enc:\\\\x8102\\\\x0632\\\\xB63A\\\\xFC97\\\\x2415": [
+      "Fronis Irontoe"
+    ],
+    "enc:\\\\x8102\\\\x0633\\\\x8CA4\\\\x7365": [
+      "Bjorn Thunderfist"
+    ],
+    "enc:\\\\x8102\\\\x0634\\\\x8201\\\\x98DD\\\\x5728": [
+      "Norn Brawler"
+    ],
+    "enc:\\\\x8102\\\\x0645\\\\xC24F\\\\xE61A\\\\x0D4C": [
+      "Agent 24",
+      "Chieftain Windswept"
+    ],
+    "enc:\\\\x8102\\\\x0D28\\\\xD728\\\\x8B36\\\\x6219": [
+      "Rabbit"
+    ],
     "enc:\\\\x8102\\\\x0EA5\\\\xBE4A\\\\xF84F\\\\x3B52": [
       "Agent 255",
       "Dreamroot Mandragor"
     ],
+    "enc:\\\\x8102\\\\x0EA8\\\\xF21F\\\\xE260\\\\x0FCC": [
+      "Agent 57",
+      "Dreamroot Mandragor"
+    ],
+    "enc:\\\\x8102\\\\x0EAA\\\\xAEC8\\\\x8D55\\\\x4045": [
+      "Agent 54",
+      "Ulcerous Mandragor"
+    ],
+    "enc:\\\\x8102\\\\x0EAC\\\\x99EA\\\\x4070": [
+      "Agent 53",
+      "Mandragor Scavenger"
+    ],
+    "enc:\\\\x8102\\\\x0EAF\\\\xF1DC\\\\x7985": [
+      "Agent 56",
+      "Mystic Mandragor"
+    ],
+    "enc:\\\\x8102\\\\x0ED7\\\\xE64C\\\\x9460\\\\x750A": [
+      "Agent 159",
+      "Cave Ayahuasca"
+    ],
+    "enc:\\\\x8102\\\\x0ED9\\\\xA8B1\\\\xD651\\\\x2A4A": [
+      "Agent 37",
+      "Cave Aloe"
+    ],
+    "enc:\\\\x8102\\\\x0EDA\\\\xF151\\\\xBF08\\\\x1C25": [
+      "Agent 36",
+      "Agent 38",
+      "Corrupted Aloe"
+    ],
+    "enc:\\\\x8102\\\\x0EDB\\\\xD4D1\\\\xB0E2\\\\x1FE8": [
+      "Agent 32",
+      "Agent 33",
+      "Fungal Bloom"
+    ],
     "enc:\\\\x8102\\\\x10A7\\\\xCC7B\\\\xA345\\\\x2974": [
-      "Jotun Bladeturner"
+      "Jotun Bladeturner",
+      "Agent 46",
+      "Agent 53"
+    ],
+    "enc:\\\\x8102\\\\x11AB\\\\x8DA3\\\\x61D8": [
+      "Agent 56",
+      "Chieftain Ulgrimar Gnash"
+    ],
+    "enc:\\\\x8102\\\\x141C\\\\xAB55\\\\xAE8D\\\\x38D8": [
+      "Agent 209",
+      "Carrion Feeder"
+    ],
+    "enc:\\\\x8102\\\\x1426\\\\xADFD\\\\xCF19\\\\x3453": [
+      "Dazehl Brainfreezer"
+    ],
+    "enc:\\\\x8102\\\\x14A4\\\\xB62C\\\\xD146\\\\x1764": [
+      "Agent 29",
+      "Koren Wildrunner"
+    ],
+    "enc:\\\\x8102\\\\x14A6\\\\xCED5\\\\xC0CF\\\\x682B": [
+      "Agent 106",
+      "Myish, Lady of the Lake"
+    ],
+    "enc:\\\\x8102\\\\x14A7\\\\xC04E\\\\x4BA9": [
+      "Agent 106",
+      "Whiteout"
+    ],
+    "enc:\\\\x8102\\\\x14B1\\\\xD3D1\\\\x865E\\\\x6BC6": [
+      "Nulfastu Earthbound"
+    ],
+    "enc:\\\\x8102\\\\x14B3\\\\xC81D\\\\xBFD2\\\\x0C82": [
+      "Agent 345",
+      "Frost Wurm"
+    ],
+    "enc:\\\\x8102\\\\x14BE\\\\x9C0B\\\\xAD8D\\\\x5469": [
+      "Agent 224",
+      "Bloodtaint Dryder"
+    ],
+    "enc:\\\\x8102\\\\x18E9\\\\x93DB\\\\xE66A\\\\x19D6": [
+      "Argo"
+    ],
+    "enc:\\\\x8102\\\\x18EB\\\\x9F2C\\\\xD143\\\\x68AE": [
+      "Cynn"
+    ],
+    "enc:\\\\x8102\\\\x18F5\\\\xE574\\\\x9C83\\\\x4E8D": [
+      "Gwen"
+    ],
+    "enc:\\\\x8102\\\\x18FB\\\\x8405\\\\xACAF\\\\x366A": [
+      "Kahmu"
+    ],
+    "enc:\\\\x8102\\\\x1903\\\\xEEF6\\\\xBAA8\\\\x0AE6": [
+      "Lo Sha"
+    ],
+    "enc:\\\\x8102\\\\x1908\\\\x9126\\\\xB52B\\\\x4538": [
+      "Magni the Bison"
+    ],
+    "enc:\\\\x8102\\\\x190A\\\\xF71E\\\\xFDAD\\\\x6A0A": [
+      "Melonni"
+    ],
+    "enc:\\\\x8102\\\\x190E\\\\x8ED4\\\\x8F03\\\\x52F2": [
+      "Morgahn"
+    ],
+    "enc:\\\\x8102\\\\x1912\\\\xFE05\\\\xCEA5\\\\x71F0": [
+      "Norgu"
+    ],
+    "enc:\\\\x8102\\\\x1920\\\\xE5AE\\\\xAE41\\\\x26E1": [
+      "Little Thom"
+    ],
+    "enc:\\\\x8102\\\\x1922\\\\xD0E7\\\\x0B76": [
+      "Warmaster Tydus"
+    ],
+    "enc:\\\\x8102\\\\x1928\\\\xC0DE\\\\x8E8F\\\\x1D33": [
+      "Xandra"
+    ],
+    "enc:\\\\x8102\\\\x1930\\\\xEF38\\\\x9B75\\\\x3345": [
+      "Lieutenant Mahgma"
+    ],
+    "enc:\\\\x8102\\\\x1C72\\\\xD636\\\\xAAC7\\\\x6355": [
+      "Agent 15",
+      "Siege Devourer"
+    ],
+    "enc:\\\\x8102\\\\x202D\\\\xE31F\\\\xB100\\\\x09A5": [
+      "Agent 146",
+      "Destroyer of Thoughts"
+    ],
+    "enc:\\\\x8102\\\\x202F\\\\xF064\\\\xA2A8\\\\x3789": [
+      "Agent 168",
+      "Destroyer of Sinew"
+    ],
+    "enc:\\\\x8102\\\\x2030\\\\xF0CC\\\\xF337\\\\x6C7B": [
+      "Agent 171",
+      "Destroyer of Bones"
+    ],
+    "enc:\\\\x8102\\\\x2031\\\\xF52A\\\\xEC6B\\\\x4486": [
+      "Agent 143",
+      "Destroyer of Flesh"
+    ],
+    "enc:\\\\x8102\\\\x2032\\\\xC54E\\\\xA485\\\\x16F3": [
+      "Agent 126",
+      "Destroyer of Deeds"
+    ],
+    "enc:\\\\x8102\\\\x2037\\\\xB4FA\\\\xAB2B\\\\x4F51": [
+      "Agent 58",
+      "Jadam Spearspinner"
+    ],
+    "enc:\\\\x8102\\\\x203A\\\\x825B\\\\xF6AA\\\\x7E3F": [
+      "Bloodweaver"
+    ],
+    "enc:\\\\x8102\\\\x2041\\\\x9724\\\\xCC91\\\\x32B0": [
+      "Agent 309",
+      "Modniir Shaman",
+      "Agent 177",
+      "Agent 20"
+    ],
+    "enc:\\\\x8102\\\\x2044\\\\xC97B\\\\xB5B1\\\\x09F9": [
+      "Agent 98",
+      "Avarr the Fallen"
     ],
     "enc:\\\\x8102\\\\x207B\\\\x99DB\\\\x6611": [
-      "Berserking Wendigo"
+      "Berserking Wendigo",
+      "Agent 333",
+      "Agent 184"
     ],
     "enc:\\\\x8102\\\\x207C\\\\xCAE8\\\\x8738\\\\x7372": [
-      "Berserking Aurochs"
+      "Berserking Aurochs",
+      "Agent 65",
+      "Agent 46"
+    ],
+    "enc:\\\\x8102\\\\x20A9\\\\xB04D\\\\xCC78\\\\x2A9A": [
+      "Agent 338",
+      "Mist Vaettir",
+      "Agent 111"
+    ],
+    "enc:\\\\x8102\\\\x20AA\\\\xBAE6\\\\xF9EC\\\\x44C4": [
+      "Agent 140",
+      "Shadow Vaettir",
+      "Agent 182"
+    ],
+    "enc:\\\\x8102\\\\x20AB\\\\xAB9A\\\\xA02E\\\\x68E5": [
+      "Scourge Vaettir",
+      "Agent 82"
+    ],
+    "enc:\\\\x8102\\\\x20AE\\\\xFE30\\\\x9F20\\\\x237E": [
+      "Agent 20",
+      "Agent 21",
+      "Stone Summit Carver"
+    ],
+    "enc:\\\\x8102\\\\x20AF\\\\xC89E\\\\x88F7\\\\x5A3F": [
+      "Stone Summit Crusher"
+    ],
+    "enc:\\\\x8102\\\\x20B0\\\\x987D\\\\xBD5F\\\\x30B8": [
+      "Agent 27",
+      "Stone Summit Carver"
+    ],
+    "enc:\\\\x8102\\\\x20B1\\\\xA3FB\\\\x9910\\\\x7611": [
+      "Stone Summit Ranger"
+    ],
+    "enc:\\\\x8102\\\\x21C6\\\\xBBAA\\\\x5E0C": [
+      "Savage Nornbear"
+    ],
+    "enc:\\\\x8102\\\\x21EF\\\\xF2C0\\\\xC21A\\\\x7694": [
+      "Agent 178",
+      "Arctic Wolf"
+    ],
+    "enc:\\\\x8102\\\\x2205\\\\x85AE\\\\x9E67\\\\x3A8C": [
+      "Agent 33",
+      "Agent 34",
+      "Agent 35",
+      "Ice Imp",
+      "Agent 60"
+    ],
+    "enc:\\\\x8102\\\\x23A1\\\\xAC0C\\\\xD1A0\\\\x19C5": [
+      "Stonewolf",
+      "Agent 211"
+    ],
+    "enc:\\\\x8102\\\\x23A5\\\\xABFB\\\\xBC49\\\\x0333": [
+      "Agent 22",
+      "Asterius the Mighty"
+    ],
+    "enc:\\\\x8102\\\\x23A8\\\\xB6E0\\\\xD558\\\\x1B88": [
+      "Johon the Oxflinger"
+    ],
+    "enc:\\\\x8102\\\\x23AE\\\\xEEFD\\\\xA952\\\\x7C5C": [
+      "Agent 24",
+      "Borrguus Blisterbark"
+    ],
+    "enc:\\\\x8102\\\\x23AF\\\\x9949\\\\xE9EF\\\\x6C7D": [
+      "Agent 56",
+      "Horai Wingshielder"
+    ],
+    "enc:\\\\x8102\\\\x23B1\\\\xB7AF\\\\xCACA\\\\x373A": [
+      "Agent 16",
+      "Molotov Rocktail"
+    ],
+    "enc:\\\\x8102\\\\x23B4\\\\xD7F0\\\\x5DF7": [
+      "Agent 56",
+      "Tumbled Elemental"
+    ],
+    "enc:\\\\x8102\\\\x23BF\\\\x8B7B\\\\xC36B\\\\x257A": [
+      "Agent 34",
+      "Agent 35",
+      "Parasitic Growth"
+    ],
+    "enc:\\\\x8102\\\\x23C1\\\\xEC75\\\\x91EE\\\\x4F79": [
+      "Nifling the Chained"
+    ],
+    "enc:\\\\x8102\\\\x2564\\\\xF1CB\\\\xCDEB\\\\x6A39": [
+      "Harghul"
+    ],
+    "enc:\\\\x8102\\\\x2573\\\\x8DC9\\\\xB6AC\\\\x7505": [
+      "Stavann Fjarsson"
+    ],
+    "enc:\\\\x8102\\\\x2578\\\\xC5FC\\\\xD002\\\\x427C": [
+      "Coldrok Crannor"
+    ],
+    "enc:\\\\x8102\\\\x258B\\\\x8865\\\\xEC6F\\\\x588F": [
+      "Olgana Beartamer"
+    ],
+    "enc:\\\\x8102\\\\x288C\\\\x8650\\\\xE055\\\\x40F7": [
+      "Agent 16",
+      "Flannuss Broadwing"
+    ],
+    "enc:\\\\x8102\\\\x2A76\\\\xB9F0\\\\x8EE6\\\\x687F": [
+      "Agent 212",
+      "Bone Fiend"
+    ],
+    "enc:\\\\x8102\\\\x2AB0\\\\xF67C\\\\xFAAB\\\\x3F36": [
+      "Inga Caveborn"
+    ],
+    "enc:\\\\x8102\\\\x2AB5\\\\xB3D2\\\\xBBA1\\\\x28E3": [
+      "Edda Oaksmasher"
+    ],
+    "enc:\\\\x8102\\\\x2C67\\\\x861F\\\\xE579\\\\x3A14": [
+      "Agent 256",
+      "Regent of Ice"
+    ],
+    "enc:\\\\x8102\\\\x3B1D\\\\xE77D\\\\xC67B\\\\x5499": [
+      "Bandit Bruiser"
+    ],
+    "enc:\\\\x8102\\\\x3CED\\\\xAF8A\\\\x92C0\\\\x02A0": [
+      "Agent 61",
+      "Varny the Zealot"
+    ],
+    "enc:\\\\x8102\\\\x3CEE\\\\x8CB7\\\\x8FAD\\\\x359D": [
+      "Agent 49",
+      "God-touched Grawl"
+    ],
+    "enc:\\\\x8102\\\\x3CFB\\\\x92EC\\\\xFB62\\\\x029D": [
+      "Agent 32",
+      "Furious Ghost"
+    ],
+    "enc:\\\\x8102\\\\x3D0B\\\\xCFC8\\\\xB82B\\\\x5EE6": [
+      "Discordant Echo"
+    ],
+    "enc:\\\\x8102\\\\x3D10\\\\x9246\\\\xD62C\\\\x4C21": [
+      "Fractured Echo"
+    ],
+    "enc:\\\\x8102\\\\x3D15\\\\x6FEC": [
+      "Depleted Echo"
+    ],
+    "enc:\\\\x8102\\\\x3D1A\\\\xEA32\\\\xD207\\\\x109F": [
+      "Agent 26",
+      "Wavering Echo"
+    ],
+    "enc:\\\\x8102\\\\x3D1F\\\\xFD1E\\\\x9EBB\\\\x14FC": [
+      "Blunted Echo"
+    ],
+    "enc:\\\\x8102\\\\x3D24\\\\xD0FA\\\\x89E8\\\\x3437": [
+      "Jagged Echo"
+    ],
+    "enc:\\\\x8102\\\\x3D29\\\\xBDF9\\\\xAA39\\\\x3D3A": [
+      "Withered Echo"
+    ],
+    "enc:\\\\x8102\\\\x3D3F\\\\xB325\\\\xCD58\\\\x0244": [
+      "Agent 99",
+      "Enraged Phantom"
+    ],
+    "enc:\\\\x8102\\\\x3D45\\\\xC334\\\\xD2CD\\\\x201B": [
+      "Agent 39",
+      "Agent 53",
+      "Agent 54",
+      "Agent 55",
+      "Agent 56",
+      "Agent 57",
+      "Manipulated Grawl Fighter"
+    ],
+    "enc:\\\\x8102\\\\x3D4B\\\\x9BBC\\\\x9799\\\\x32AE": [
+      "Agent 43",
+      "Agent 47",
+      "Manipulated Grawl Defiler"
+    ],
+    "enc:\\\\x8102\\\\x3D51\\\\xBF95\\\\x9361\\\\x604E": [
+      "Agent 32",
+      "Agent 48",
+      "Manipulated Grawl Zealot"
+    ],
+    "enc:\\\\x8102\\\\x3D6C\\\\xD000\\\\xE879\\\\x2801": [
+      "Agent 66",
+      "Crown[s] of Thorns"
+    ],
+    "enc:\\\\x8102\\\\x3D6D\\\\xFE0F\\\\xFC12\\\\x447B": [
+      "Singed Oak"
+    ],
+    "enc:\\\\x8102\\\\x3D6E\\\\xEDAB\\\\xCACC\\\\x6D86": [
+      "Melandru's Stalker"
+    ],
+    "enc:\\\\x8102\\\\x3D6F\\\\xC2D6\\\\xF2AF\\\\x7BEB": [
+      "Bandit Firebug"
+    ],
+    "enc:\\\\x8102\\\\x3D70\\\\xC77B\\\\xAA13\\\\x7B5D": [
+      "Bandit Bruiser"
+    ],
+    "enc:\\\\x8102\\\\x3D71\\\\xA470\\\\x2FE4": [
+      "Bandit Enforcer"
+    ],
+    "enc:\\\\x8102\\\\x3D72\\\\x89F8\\\\xD613\\\\x5CB9": [
+      "Bandit Captain"
+    ],
+    "enc:\\\\x8102\\\\x3D75\\\\x820C\\\\xEBCB\\\\x76F6": [
+      "Blunted Spirit"
+    ],
+    "enc:\\\\x8102\\\\x3D76\\\\xA03C\\\\xA5C9\\\\x14DF": [
+      "Withered Spirit"
+    ],
+    "enc:\\\\x8102\\\\x3D77\\\\xD4D5\\\\xA56C\\\\x19F8": [
+      "Fractured Spirit"
+    ],
+    "enc:\\\\x8102\\\\x3D7A\\\\xAF3C\\\\xE643\\\\x7973": [
+      "Grawl Longspear"
+    ],
+    "enc:\\\\x8102\\\\x3D7B\\\\xD1CD\\\\x90E3\\\\x72D0": [
+      "Grawl Shaman"
+    ],
+    "enc:\\\\x8102\\\\x3D7C\\\\xAD92\\\\xCE6E\\\\x0BD7": [
+      "Grawl Basher"
+    ],
+    "enc:\\\\x8102\\\\x3D7D\\\\x8767\\\\xE2C1\\\\x01A0": [
+      "Grawl Crone"
+    ],
+    "enc:\\\\x8102\\\\x3D7E\\\\x9063\\\\xEB4A\\\\x0771": [
+      "Storm Rider"
+    ],
+    "enc:\\\\x8102\\\\x3D7F\\\\xE72B\\\\x867E\\\\x31E8": [
+      "Agent 67",
+      "Carrion Devourer"
+    ],
+    "enc:\\\\x8102\\\\x3D80\\\\xF7D4\\\\x937A\\\\x1052": [
+      "Agent 103",
+      "Plague Devourer"
+    ],
+    "enc:\\\\x8102\\\\x3D81\\\\xA3C0\\\\x84DB\\\\x1F46": [
+      "Resurrect Gargoyle"
+    ],
+    "enc:\\\\x8102\\\\x3D82\\\\x82A3\\\\xCC08\\\\x293C": [
+      "Shatter Gargoyle"
+    ],
+    "enc:\\\\x8102\\\\x3D83\\\\x85ED\\\\xA1F4\\\\x7750": [
+      "Flash Gargoyle"
+    ],
+    "enc:\\\\x8102\\\\x3D84\\\\xC9B8\\\\x121F": [
+      "Boulder Elemental"
+    ],
+    "enc:\\\\x8102\\\\x3D85\\\\xB306\\\\x2C14": [
+      "Stone Elemental"
+    ],
+    "enc:\\\\x8102\\\\x3D86\\\\xD23B\\\\x853C\\\\x020D": [
+      "Stone Fury"
+    ],
+    "enc:\\\\x8102\\\\x3D87\\\\xE7F2\\\\xC6AF\\\\x2C74": [
+      "Cave Elemental"
+    ],
+    "enc:\\\\x8102\\\\x3D88\\\\xA035\\\\xD0C2\\\\x3C5D": [
+      "Hulking Cave Elemental"
+    ],
+    "enc:\\\\x8102\\\\x3DCE\\\\xBA96\\\\x1802": [
+      "Shard Elemental"
+    ],
+    "enc:\\\\x8102\\\\x3DCF\\\\xE0A9\\\\xE76A\\\\x3D0F": [
+      "Hulking Shard Elemental"
     ],
     "enc:\\\\x8102\\\\x5BAD\\\\xE127\\\\xB7B2\\\\x53D7": [
       "Agent 355",

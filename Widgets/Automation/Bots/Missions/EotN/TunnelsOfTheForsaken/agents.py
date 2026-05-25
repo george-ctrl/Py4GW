@@ -70,6 +70,11 @@ def find_varny() -> int | None:
     return _nearest_agent_by_model(ModelID.VARNY)
 
 
+def find_dungeon_entrance() -> int | None:
+    """Return the agent ID of the TotF dungeon entrance portal in Verdant Cascades."""
+    return _nearest_agent_by_model(ModelID.DUNGEON_ENTRANCE)
+
+
 def find_dasher() -> int | None:
     """
     Find the Dasher account's agent ID via shared memory skill bars.

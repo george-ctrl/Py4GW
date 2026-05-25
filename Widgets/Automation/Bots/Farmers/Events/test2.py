@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from typing import Callable
 
 from Py4GWCoreLib import Map, Player, UIManager
@@ -15,6 +16,7 @@ MODULE_NAME = "Proof of Legend bot Faction edition by Wick Divinus"
 MODULE_ICON = "Textures\\Module_Icons\\Leveler - Factions.png"
 
 KAINENG_CENTER_MAP_ID = 194
+EMBARK_BEACH_MAP_ID = 857
 
 initialized = False
 botting_tree: BottingTree | None = None
@@ -24,12 +26,20 @@ def V(x: float, y: float) -> Vec2f:
     return Vec2f(float(x), float(y))
 
 
+ZAISHEN_MISSION_NPC_POSITIONS = [
+    V(2592.02, 3287.03),
+    V(-3437.85, 395.36),
+    V(-202.37, -3485.17),
+    V(2625.22, -2332.96),
+]
+
+
 def LongMove(points: Vec2f | list[Vec2f], timeout_ms: int = 60000) -> BehaviorTree:
     path = points if isinstance(points, list) else [points]
     return Sequence(
         "Long Timeout Move",
         [
-            RoutinesBT.Movement.Move(
+            RoutinesBT.Player.Move(
                 x=point.x,
                 y=point.y,
                 tolerance=75.0,
@@ -81,27 +91,42 @@ def OptionalTree(name: str, tree: BehaviorTree | BehaviorTree.Node) -> BehaviorT
             ],
         )
     )
+
+
+def configure_upkeep_trees(tree: BottingTree) -> BottingTree:
+    tree.Config.ConfigureUpkeep(
+        disable_looting=True,
+        restore_isolation_on_stop=True,
+        enable_outpost_imp_service=True,
+        enable_explorable_imp_service=True,
+        enable_party_wipe_recovery=True,
+    )
+    return tree
+
+
 def ensure_botting_tree() -> BottingTree:
     global botting_tree
 
     if botting_tree is None:
-        botting_tree = BottingTree.Create(
-            MODULE_NAME,
-            main_routine=get_execution_steps(),
-            routine_name="Factions Leveler Sequence",
+        botting_tree = configure_upkeep_trees(BottingTree(MODULE_NAME))
+        botting_tree.SetMainRoutine(
+            get_execution_steps(),
+            name="Factions Leveler Sequence",
             repeat=True,
             reset=False,
-            configure_fn=lambda tree: tree.Config.ConfigureUpkeepTrees(
-                disable_looting=True,
-                restore_isolation_on_stop=True,
-                enable_outpost_imp_service=True,
-                enable_explorable_imp_service=True,
-                imp_log=False,
-                enable_party_wipe_recovery=True,
-            ),
         )
 
     return botting_tree
+
+
+def ConfigurePacifistEnv() -> BehaviorTree:
+    return ensure_botting_tree().Config.Pacifist()
+
+
+def ConfigureAggressiveEnv() -> BehaviorTree:
+    return ensure_botting_tree().Config.Aggressive(auto_loot=False)
+
+
 def AddHenchmen() -> BehaviorTree:
     def _build_henchmen_tree(_node: BehaviorTree.Node) -> BehaviorTree:
         party_size = Map.GetMaxPartySize()
@@ -215,14 +240,11 @@ def EquipSkillBar() -> BehaviorTree:
 
 
 def PrepareForBattle() -> BehaviorTree:
-    bot = ensure_botting_tree()
     return Sequence(
-            "Prepare For Battle",
-            [
-                bot.Config.Aggressive(
-                    auto_loot=False,
-                ),
-                EquipStarterWeapon(),
+        "Prepare For Battle",
+        [
+            ConfigureAggressiveEnv(),
+            EquipStarterWeapon(),
             EquipSkillBar(),
             BT.LeaveParty(),
             AddHenchmen(),
@@ -319,12 +341,11 @@ def Exit_Monastery_Overlook() -> BehaviorTree:
 
 
 def Unlock_Secondary_Profession() -> BehaviorTree:
-    bot = ensure_botting_tree()
     return Sequence(
         "Unlock Secondary Profession",
         [
-            BT.Travel(random_travel=True, target_map_name="Shing Jea Monastery"),
-            bot.Config.Pacifist(),
+            BT.Travel(target_map_name="Shing Jea Monastery", random_travel=True),
+            ConfigurePacifistEnv(),
             BT.MoveAndExitMap(V(-3480, 9460), target_map_name="Linnok Courtyard"),
             BT.Move(V(-159, 9174)),
             BT.StoreProfessionNames(),
@@ -362,13 +383,12 @@ def Unlock_Xunlai_Storage() -> BehaviorTree:
 
 
 def To_Minister_Chos_Estate() -> BehaviorTree:
-    bot = ensure_botting_tree()
     return Sequence(
         "To Minister Cho's Estate",
         [
-            BT.Travel(random_travel=True, target_map_name="Shing Jea Monastery"),
+            BT.Travel(target_map_name="Shing Jea Monastery", random_travel=True),
             BT.MoveAndExitMap(V(-14961, 11453), target_map_name="Sunqua Vale"),
-            bot.Config.Pacifist(),
+            ConfigurePacifistEnv(),
             BT.Move([V(16182.62, -7841.86), V(6611.58, 15847.51)]),
             QuestDialog("Step 1 - A Formal Introduction", V(6637, 16147), 0x80000B),
             BT.WaitForMapLoad(map_id=214),
@@ -381,7 +401,7 @@ def Unlock_Skills_Trainer() -> BehaviorTree:
     return Sequence(
         "Unlock Skills Trainer",
         [
-            BT.Travel(random_travel=True, target_map_name="Shing Jea Monastery"),
+            BT.Travel(target_map_name="Shing Jea Monastery", random_travel=True),
             BT.MoveAndDialog(V(-8790.00, 10366.00), dialog_id=0x84),
             BT.Wait(3000),
             RoutinesBT.Player.BuySkill(57),
@@ -393,12 +413,103 @@ def Unlock_Skills_Trainer() -> BehaviorTree:
     )
 
 
-def Minister_Chos_Estate_Mission() -> BehaviorTree:
-    bot = ensure_botting_tree()
-    return Sequence(
-        "Minister Cho's Estate Mission",
+def Accept_Minister_Cho_Zaishen_Mission() -> BehaviorTree:
+    ZM_QUEST_ID = 1119
+
+    def _has_zm_quest(_: BehaviorTree.Node) -> BehaviorTree.NodeState:
+        return (
+            BehaviorTree.NodeState.SUCCESS
+            if ZM_QUEST_ID in Quest.GetQuestLogIds()
+            else BehaviorTree.NodeState.FAILURE
+        )
+
+    def _move_to_closest(_: BehaviorTree.Node) -> BehaviorTree:
+        px, py = Player.GetXY()
+        closest = min(ZAISHEN_MISSION_NPC_POSITIONS, key=lambda p: (p.x - px) ** 2 + (p.y - py) ** 2)
+        return Sequence(
+            "Move And Accept Closest ZM NPC",
+            [
+                RoutinesBT.Player.Move(x=closest.x, y=closest.y, tolerance=150.0, timeout_ms=15000, pause_on_combat=False),
+                BT.Wait(3000),
+                RoutinesBT.Agents.TargetNearestNPCXY(closest.x, closest.y, 500),
+                RoutinesBT.Agents.InteractAndAutomaticDialog(button_number=0),
+            ],
+        )
+
+    # Travel to Embark Beach and interact with the closest ZM NPC
+    attempt = Sequence(
+        "Accept ZM Attempt",
         [
-            BT.Travel(random_travel=True, target_map_id=214),
+            BT.Travel(target_map_id=214, random_travel=True),
+            BT.MoveAndDialog(V(9379.00, -10595.00), dialog_id=0x84),  # Zaishen Scout -> Embark Beach
+            BT.WaitForMapLoad(map_id=857, timeout_ms=30000),
+            BehaviorTree(BehaviorTree.SubtreeNode(
+                name="Move To Closest ZM NPC",
+                subtree_fn=_move_to_closest,
+            )),
+            BT.Wait(2000),
+        ],
+    )
+
+    # Attempt times out and restarts if it takes longer than 1 minute
+    timed_attempt = BehaviorTree(
+        BehaviorTree.RepeaterUntilSuccessNode(
+            attempt.root,
+            timeout_ms=60000,
+            name="Accept ZM Attempt (1 min timeout)",
+        )
+    )
+
+    # One iteration: run the attempt, then verify the quest is actually in the log
+    # Only returns SUCCESS when quest 1119 is confirmed in the quest log
+    step = Sequence(
+        "Accept ZM Step",
+        [
+            timed_attempt,
+            BehaviorTree.ConditionNode(name="Has ZM Quest 1119", condition_fn=_has_zm_quest),
+        ],
+    )
+
+    # Skip if quest already obtained; otherwise repeat step until quest is in log
+    return BehaviorTree(
+        BehaviorTree.SelectorNode(
+            name="Accept Minister Cho's Estate ZM at Embark Beach",
+            children=[
+                BehaviorTree.ConditionNode(name="Already Has ZM Quest 1119", condition_fn=_has_zm_quest),
+                BehaviorTree(BehaviorTree.RepeaterUntilSuccessNode(
+                    step.root,
+                    timeout_ms=0,
+                    name="Repeat Until Quest 1119 Accepted",
+                )),
+            ],
+        )
+    )
+
+
+def Minister_Chos_Estate_Mission() -> BehaviorTree:
+    # EU district IDs: Italian=6, Spanish=7, Polish=8, Russian=9
+    _EU_DISTRICTS = [6, 7, 8, 9]
+
+    def _force_travel_to_214(_: BehaviorTree.Node) -> BehaviorTree.NodeState:
+        Map.TravelToDistrict(214, random.choice(_EU_DISTRICTS))
+        return BehaviorTree.NodeState.SUCCESS
+
+    force_travel = Sequence(
+        "Force Travel To Minister Cho's Outpost 214",
+        [
+            BehaviorTree(BehaviorTree.ActionNode(
+                name="ForceTravelToMinisterCho214",
+                action_fn=_force_travel_to_214,
+                aftercast_ms=500,
+            )),
+            BT.WaitForMapLoad(map_id=214, timeout_ms=60000),
+        ],
+    )
+
+    attempt = Sequence(
+        "Minister Cho's Estate Mission Attempt",
+        [
+            force_travel,
             PrepareForBattle(),
             EnterChallenge(),
             LongMove([V(6220.76, -7360.73), V(5523.95, -7746.41)]),
@@ -406,14 +517,12 @@ def Minister_Chos_Estate_Mission() -> BehaviorTree:
             LongMove(V(591.21, -9071.10)),
             BT.Wait(30000),
             LongMove([V(4889, -5043), V(4268.49, -3621.66)]),
-            BT.Wait(20000),
+            BT.Wait(40000),
             LongMove([V(6216, -1108), V(2617, 642), V(1706.90, 1711.44)]),
             BT.Wait(30000),
             LongMove([V(333.32, 1124.44), V(-3337.14, -4741.27)]),
             BT.Wait(35000),
-            bot.Config.Aggressive(
-                auto_loot=False,
-            ),
+            ConfigureAggressiveEnv(),
             LongMove([
                 V(-4661.99, -6285.81),
                 V(-7454, -7384),
@@ -427,16 +536,79 @@ def Minister_Chos_Estate_Mission() -> BehaviorTree:
             BT.WaitForMapLoad(map_id=251, timeout_ms=60000),
         ],
     )
+    return BehaviorTree(
+        BehaviorTree.RepeaterUntilSuccessNode(
+            attempt.root,
+            timeout_ms=0,
+            name="Minister Cho's Estate Mission",
+        )
+    )
+
+
+def Complete_Minister_Cho_Zaishen_Mission() -> BehaviorTree:
+    ZM_QUEST_ID = 1119
+
+    def _zm_quest_turned_in(_: BehaviorTree.Node) -> BehaviorTree.NodeState:
+        return (
+            BehaviorTree.NodeState.SUCCESS
+            if ZM_QUEST_ID not in Quest.GetQuestLogIds()
+            else BehaviorTree.NodeState.FAILURE
+        )
+
+    # Travel to Ran Musu Gardens then Embark Beach and interact with Zenchu to turn in the ZM quest
+    attempt = Sequence(
+        "Complete ZM Attempt",
+        [
+            BT.Travel(target_map_id=251, random_travel=True),
+            BT.Travel(target_map_id=EMBARK_BEACH_MAP_ID, random_travel=True),
+            RoutinesBT.Player.Move(x=-749.00, y=-3262.00, tolerance=150.0, timeout_ms=15000, pause_on_combat=False),
+            BT.Wait(3000),
+            RoutinesBT.Agents.TargetNearestNPCXY(-749.00, -3262.00, 500),
+            RoutinesBT.Agents.InteractAndAutomaticDialog(button_number=0),
+            BT.Wait(2000),
+        ],
+    )
+
+    # Attempt times out and restarts if it takes longer than 1 minute
+    timed_attempt = BehaviorTree(
+        BehaviorTree.RepeaterUntilSuccessNode(
+            attempt.root,
+            timeout_ms=60000,
+            name="Complete ZM Attempt (1 min timeout)",
+        )
+    )
+
+    # One iteration: run the attempt, then verify the quest is no longer in the log
+    # Only returns SUCCESS when quest 1119 is confirmed gone from the quest log
+    step = Sequence(
+        "Complete ZM Step",
+        [
+            timed_attempt,
+            BehaviorTree.ConditionNode(name="ZM Quest 1119 Turned In", condition_fn=_zm_quest_turned_in),
+        ],
+    )
+
+    # Skip if quest already turned in; otherwise repeat step until quest is gone from log
+    return BehaviorTree(
+        BehaviorTree.SelectorNode(
+            name="Complete Minister Cho's Estate ZM at Embark Beach",
+            children=[
+                BehaviorTree.ConditionNode(name="ZM Quest 1119 Already Turned In", condition_fn=_zm_quest_turned_in),
+                BehaviorTree(BehaviorTree.RepeaterUntilSuccessNode(
+                    step.root,
+                    timeout_ms=0,
+                    name="Repeat Until Quest 1119 Turned In",
+                )),
+            ],
+        )
+    )
 
 
 def Deposit_Proof_Of_Legend() -> BehaviorTree:
     return Sequence(
         "Deposit Proof of Legend",
         [
-            BT.Travel(random_travel=True, target_map_id=251),
-            BT.DepositModelToStorage(37841),
-            BT.DepositModelToStorage(31202),
-            BT.DepositModelToStorage(31202),
+            BT.Travel(target_map_id=251, random_travel=True),
             BT.DepositModelToStorage(31202),
             BT.DepositGoldKeep(0),
         ],
@@ -479,7 +651,9 @@ def get_execution_steps() -> list[tuple[str, Callable[[], BehaviorTree]]]:
         ("Unlock Xunlai Storage", Unlock_Xunlai_Storage),
         ("To Minister Cho's Estate", To_Minister_Chos_Estate),
         ("Unlock Skills Trainer", Unlock_Skills_Trainer),
+        ("Accept Minister Cho's Estate ZM at Embark Beach", Accept_Minister_Cho_Zaishen_Mission),
         ("Minister Cho's Estate Mission", Minister_Chos_Estate_Mission),
+        ("Complete Minister Cho's Estate ZM at Embark Beach", Complete_Minister_Cho_Zaishen_Mission),
         ("Deposit Proof Of Legend", Deposit_Proof_Of_Legend),
         ("Reroll: Logout > Delete > Recreate", LogoutAndDeleteState),
     ]
