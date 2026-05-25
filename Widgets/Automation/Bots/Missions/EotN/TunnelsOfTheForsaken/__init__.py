@@ -29,26 +29,86 @@ File layout:
 from __future__ import annotations
 
 # ── Py4GW package bootstrap ───────────────────────────────────────────────────
-# Py4GW loads __init__.py as a bare script; __package__ is None, which makes
-# all relative imports below fail.  Register a minimal package stub so Python's
-# import machinery can resolve them before we actually use them.
+# Py4GW 3.x exec()s scripts from C++ without setting __file__ or __package__,
+# so the normal package machinery is unavailable.  We try five strategies to
+# locate the real file path, then register a minimal stub so relative imports
+# inside roles/ work.
 import sys as _sys, os as _os, types as _types
-if not __package__:
+
+# Run when __package__ is absent OR resolves to something without __path__
+# (e.g. the "Py4GW" C extension module).
+if not __package__ or not hasattr(_sys.modules.get(__package__), "__path__"):
     import inspect as _inspect
-    _frame = _inspect.currentframe()
-    _this_file = _frame.f_code.co_filename if _frame is not None else ""
-    _d = _os.path.dirname(_os.path.abspath(_this_file))
-    _p = _os.path.dirname(_d)
-    _n = _os.path.basename(_d)
-    if _p not in _sys.path:
-        _sys.path.insert(0, _p)
-    if _n not in _sys.modules:
-        _stub = _types.ModuleType(_n)
-        _stub.__path__    = [_d]
-        _stub.__package__ = _n
-        _stub.__file__    = _this_file
-        _sys.modules[_n]  = _stub
-    __package__ = _n
+    _frame   = _inspect.currentframe()
+    _this_file = ""
+
+    # S1: co_filename — works if Py4GW compiles scripts with their real path.
+    _cf = _frame.f_code.co_filename if _frame is not None else ""
+    if _os.path.isfile(_cf):
+        _this_file = _cf
+
+    # S2: __file__ injected into the exec globals.
+    if not _this_file:
+        _gf = globals().get("__file__", "")
+        if _os.path.isfile(_gf):
+            _this_file = _gf
+
+    # S3: walk ALL Python call-stack frames looking for any local var that is a
+    # real .py path (helps when Py4GW has a Python-level script runner).
+    if not _this_file and _frame is not None:
+        _cur = _frame.f_back
+        while _cur is not None and not _this_file:
+            for _, _fv in _cur.f_locals.items():
+                if isinstance(_fv, str) and _fv.endswith(".py") and _os.path.isfile(_fv):
+                    _this_file = _fv
+                    break
+            _cur = _cur.f_back
+
+    # S4: sys.argv — Py4GW may pass the script path as an argument.
+    if not _this_file:
+        for _arg in _sys.argv:
+            if isinstance(_arg, str) and _arg.endswith(".py") and _os.path.isfile(_arg):
+                _this_file = _arg
+                break
+
+    # S5: locate via Py4GWCoreLib (always importable) — derive the Py4GW root
+    # from its __file__, then walk Widgets/ for our directory name.  This is the
+    # reliable last resort when Py4GW exec()s entirely from C++.
+    if not _this_file:
+        try:
+            _clib = __import__("Py4GWCoreLib")
+            _root = _os.path.dirname(_os.path.dirname(
+                _os.path.abspath(_clib.__file__)
+            ))
+            _root_depth = _root.count(_os.sep)
+            _skip       = {".git", "__pycache__", "node_modules", ".venv", "venv"}
+            _search     = _os.path.join(_root, "Widgets")
+            if not _os.path.isdir(_search):
+                _search = _root
+            for _dp, _dns, _fns in _os.walk(_search):
+                if _dp.count(_os.sep) - _root_depth > 8:
+                    _dns[:] = []
+                    continue
+                _dns[:] = [d for d in _dns if d not in _skip]
+                if _os.path.basename(_dp) == "TunnelsOfTheForsaken" and "__init__.py" in _fns:
+                    _this_file = _os.path.join(_dp, "__init__.py")
+                    break
+        except Exception:
+            pass
+
+    if _this_file:
+        _d = _os.path.dirname(_os.path.abspath(_this_file))
+        _p = _os.path.dirname(_d)
+        _n = _os.path.basename(_d)
+        if _p not in _sys.path:
+            _sys.path.insert(0, _p)
+        if _n not in _sys.modules or not hasattr(_sys.modules[_n], "__path__"):
+            _stub = _types.ModuleType(_n)
+            _stub.__path__    = [_d]
+            _stub.__package__ = _n
+            _stub.__file__    = _this_file
+            _sys.modules[_n]  = _stub
+        __package__ = _n
 # ─────────────────────────────────────────────────────────────────────────────
 
 import importlib as _importlib
@@ -60,17 +120,28 @@ from Py4GWCoreLib.GlobalCache import GLOBAL_CACHE
 from Py4GWCoreLib.Player import Player
 from Py4GWCoreLib.py4gwcorelib_src.Console import ConsoleLog, Console
 
-from Py4GWCoreLib.sc_framework import SCCoordinator, SCRole, SCRuntime
+from Py4GWCoreLib.sc_framework import SCCoordinator, SCRole, SCRuntime, draw_path_overlay
 
 # Derive package name and directory from the stub registered by the bootstrap.
 # Used by _reload_submodules() on every Start press.
-_PKG_NAME: str = __package__                          # "TunnelsOfTheForsaken"
-_PKG_DIR:  str = _sys.modules[_PKG_NAME].__path__[0] # absolute path to this dir
+_PKG_NAME: str = __package__ or ""
+if not _PKG_NAME or not hasattr(_sys.modules.get(_PKG_NAME), "__path__"):
+    raise RuntimeError(
+        f"TunnelsOfTheForsaken bootstrap failed (__package__={__package__!r}). "
+        "Py4GW must compile scripts with their real path or set __file__ in the "
+        "exec namespace.  Check the Py4GW version / script loader settings."
+    )
+_PKG_DIR: str = _sys.modules[_PKG_NAME].__path__[0]
+
+# Flush any stale cached submodules from a previous Py4GW load so edits to
+# role files and _shared.py take effect without a full environment reset.
+for _k in [k for k in _sys.modules if k.startswith(_PKG_NAME + ".")]:
+    del _sys.modules[_k]
 
 # Initial submodule import — fires @register_role decorators.
 from . import roles  # noqa: F401
 from .constants import ALL_CONSUMABLES
-from .roles._shared import _cons_enabled              # dict kept in sync with draw()
+from .roles._shared import _cons_enabled, _verbose_log, _movement_debug  # dicts kept in sync with draw()
 
 MODULE_NAME = "TotF Auraway"
 BOT_NAME    = "Tunnels of the Forsaken"
@@ -138,19 +209,25 @@ def _log_detection_failure() -> None:
 
 
 def _start_bot() -> None:
-    global _bot_tree, _role, _coord, _setup_err, _cons_enabled
+    global _bot_tree, _role, _coord, _setup_err, _cons_enabled, _verbose_log, _movement_debug
 
-    # Preserve the user's consumable toggles across the reload.
-    saved_cons = dict(_cons_enabled)
+    # Preserve user toggle state across the reload.
+    saved_cons      = dict(_cons_enabled)
+    saved_verbose   = _verbose_log["enabled"]
+    saved_mvt_debug = _movement_debug["enabled"]
 
     ConsoleLog(MODULE_NAME, "Reloading submodules…", Console.MessageType.Info)
     _reload_submodules()
 
-    # Re-bind _cons_enabled to the freshly created dict in the reloaded _shared,
-    # then restore the saved toggle state so the UI stays consistent.
+    # Re-bind module-level dicts to the freshly imported _shared so the UI
+    # stays in sync with the tick closures that captured them at build time.
     new_shared = _importlib.import_module(f"{_PKG_NAME}.roles._shared")
     _cons_enabled = new_shared._cons_enabled
     _cons_enabled.update(saved_cons)
+    _verbose_log = new_shared._verbose_log
+    _verbose_log["enabled"] = saved_verbose
+    _movement_debug = new_shared._movement_debug
+    _movement_debug["enabled"] = saved_mvt_debug
 
     email = _get_own_email()
     if not email:
@@ -243,13 +320,28 @@ def draw():
                 if PyImGui.button("Pause"):
                     _bot_tree.Pause(True)
 
-            PyImGui.same_line()
+            PyImGui.same_line(0, -1)
             if PyImGui.button("Stop"):
                 _stop_bot()
+
+    # ── outpost panel (role-specific) ─────────────────────────────────────────
+    _outpost_ui = getattr(_role, "outpost", None)
+    if _bot_tree is not None and _outpost_ui is not None:
+        _outpost_ui.draw_section()
+
+    # ── debug toggles ─────────────────────────────────────────────────────────
+    PyImGui.separator()
+    _verbose_log["enabled"]    = PyImGui.checkbox("Verbose Logging",  _verbose_log["enabled"])
+    _movement_debug["enabled"] = PyImGui.checkbox("Movement Debug",   _movement_debug["enabled"])
 
     # ── consumables ───────────────────────────────────────────────────────────
     PyImGui.separator()
     PyImGui.text("Consumables")
+    PyImGui.same_line(0, -1)
+    all_on = all(_cons_enabled.get(spec.key, True) for spec in ALL_CONSUMABLES)
+    if PyImGui.button("Deselect All" if all_on else "Select All"):
+        for spec in ALL_CONSUMABLES:
+            _cons_enabled[spec.key] = not all_on
     PyImGui.columns(2, "cons_cols", False)
     for spec in ALL_CONSUMABLES:
         current = _cons_enabled.get(spec.key, True)
@@ -259,3 +351,7 @@ def draw():
     PyImGui.columns(1, "cons_end", False)
 
     PyImGui.end()
+
+    # 3D world overlay — rendered every frame, independent of the ImGui window.
+    if _movement_debug["enabled"]:
+        draw_path_overlay()

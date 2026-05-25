@@ -156,14 +156,14 @@ class DXOverlay:
                 center_z = DXOverlay.FindZ(center_x, center_y) - floor_offset
 
             center = PyOverlay.Point3D(center_x, center_y, center_z+100)
-            self.renderer.DrawPoly3D(center, radius, color, segments, use_occlusion, snap_to_ground_segments, floor_offset)
+            self.renderer.DrawPoly3D(center, radius, color, segments, use_occlusion, snap_to_ground_segments > 0, snap_to_ground_segments, floor_offset)
 
         def DrawPolyFilled3D(self, center_x, center_y, center_z, radius, color, segments = 32, use_occlusion = True, snap_to_ground_segments = 1, floor_offset = 0.0):
             if center_z == 0:
                 center_z = DXOverlay.FindZ(center_x, center_y) - floor_offset
 
             center = PyOverlay.Point3D(center_x, center_y, center_z+100)
-            self.renderer.DrawPolyFilled3D(center, radius, color, segments, use_occlusion, snap_to_ground_segments, floor_offset)
+            self.renderer.DrawPolyFilled3D(center, radius, color, segments, use_occlusion, snap_to_ground_segments > 0, snap_to_ground_segments, floor_offset)
 
         def DrawCubeOutline(self, center_x, center_y, center_z, size, color, use_occlusion = True):
             if center_z == 0:

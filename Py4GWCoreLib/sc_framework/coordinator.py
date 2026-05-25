@@ -33,6 +33,7 @@ Usage example:
 from __future__ import annotations
 
 import Py4GW
+from typing import Callable
 from Py4GWCoreLib.GlobalCache import GLOBAL_CACHE
 from Py4GWCoreLib.py4gwcorelib_src.BehaviorTree import BehaviorTree
 
@@ -87,7 +88,13 @@ class SCCoordinator:
 
     # ── public node factories ─────────────────────────────────────────────
 
-    def signal_node(self, signal_id: int, *, name: str = "") -> BehaviorTree.ActionNode:
+    def signal_node(
+        self,
+        signal_id: int,
+        *,
+        name: str = "",
+        log_fn: Callable[[str], None] | None = None,
+    ) -> BehaviorTree.ActionNode:
         """
         Post a one-shot signal and return SUCCESS immediately.
 
@@ -98,6 +105,7 @@ class SCCoordinator:
         Args:
             signal_id:  Unique integer identifying this signal (from constants.py).
             name:       Optional label shown in BT debug output.
+            log_fn:     Optional callable for verbose logging.
         """
         _posted = [False]
 
@@ -105,11 +113,9 @@ class SCCoordinator:
             if not _posted[0]:
                 self._post_lock(signal_id, 1)
                 _posted[0] = True
+                if log_fn:
+                    log_fn(f"Signal {signal_id} posted ({name or 'unnamed'})")
             return BehaviorTree.NodeState.SUCCESS
-
-        def _reset() -> None:
-            _posted[0] = False
-            BehaviorTree.ActionNode.reset  # call super via class
 
         node = BehaviorTree.ActionNode(_tick, name=name or f"Signal({signal_id})")
         # Patch reset so the node can be reused if the planner is restarted.
@@ -123,6 +129,7 @@ class SCCoordinator:
         n: int,
         *,
         name: str = "",
+        log_fn: Callable[[str], None] | None = None,
     ) -> BehaviorTree.ActionNode:
         """
         Yield RUNNING until at least ``n`` accounts have posted signal_id.
@@ -134,9 +141,19 @@ class SCCoordinator:
             signal_id:  The signal ID to watch.
             n:          Number of posts required before returning SUCCESS.
             name:       Optional label shown in BT debug output.
+            log_fn:     Optional callable for verbose logging.
         """
+        _state = {"started": False}
+
         def _tick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
+            if not _state["started"]:
+                if log_fn:
+                    log_fn(f"Waiting for {n}× signal {signal_id} ({name or 'unnamed'})")
+                _state["started"] = True
             if self._is_satisfied(signal_id, n):
+                _state["started"] = False
+                if log_fn:
+                    log_fn(f"Signal {signal_id}: {n} received — proceeding")
                 return BehaviorTree.NodeState.SUCCESS
             return BehaviorTree.NodeState.RUNNING
 
@@ -148,6 +165,7 @@ class SCCoordinator:
         required: int,
         *,
         name: str = "",
+        log_fn: Callable[[str], None] | None = None,
     ) -> BehaviorTree.ActionNode:
         """
         Rendezvous: post own arrival, then yield until ``required`` total.
@@ -161,6 +179,7 @@ class SCCoordinator:
             barrier_id:  Unique integer for this synchronization point.
             required:    Total number of accounts that must arrive.
             name:        Optional label shown in BT debug output.
+            log_fn:      Optional callable for verbose logging.
         """
         _posted = [False]
 
@@ -168,9 +187,13 @@ class SCCoordinator:
             if not _posted[0]:
                 self._post_lock(barrier_id, required)
                 _posted[0] = True
+                if log_fn:
+                    log_fn(f"Barrier {barrier_id}: arrived (need {required}) ({name or 'unnamed'})")
 
             if self._is_satisfied(barrier_id, required):
                 _posted[0] = False  # reset so node can be reused
+                if log_fn:
+                    log_fn(f"Barrier {barrier_id}: all {required} arrived — continuing")
                 return BehaviorTree.NodeState.SUCCESS
 
             return BehaviorTree.NodeState.RUNNING

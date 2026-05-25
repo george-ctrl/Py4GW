@@ -31,13 +31,14 @@ from Py4GWCoreLib.sc_framework import (
     SCActions,
     PartyFollowService,
 )
+from Py4GWCoreLib.sc_framework.avoidance import AvoidanceConfig
 
 from ..constants import (
     Barriers, Signals, SkillID, QuestID,
     Waypoints, PARTY_SIZE, EE_TRIGGER_DISTANCE, EE_COOLDOWN_MS,
 )
 from ..agents import find_althea, find_enraged_phantom, find_varny, find_dasher
-from ._shared import make_sf_upkeep, make_sod_upkeep, make_iau_upkeep, make_stuck_watchdog, make_consumable_service
+from ._shared import make_sf_upkeep, make_sod_upkeep, make_iau_upkeep, make_stuck_watchdog, make_consumable_service, log, movement_log
 
 
 # ── Role class ────────────────────────────────────────────────────────────────
@@ -96,14 +97,12 @@ class AuraRole(SCRole):
 
     def build_planner(self, coord: SCCoordinator) -> BehaviorTree:
         """Full Aura planner sequence: GettingThere → Level1 → Level2 → Level3."""
-        return BehaviorTree(
-            BTComposite.Sequence(
-                _build_getting_there(),
-                _build_level1(coord),
-                _build_level2(coord),
-                _build_level3(coord),
-                name="AuraPlanner",
-            )
+        return BTComposite.Sequence(
+            _build_getting_there(),
+            _build_level1(coord),
+            _build_level2(coord),
+            _build_level3(coord),
+            name="AuraPlanner",
         )
 
 
@@ -130,11 +129,18 @@ def _build_getting_there() -> BehaviorTree:
 
     Identical to the Dasher's Getting There phase — all roles enter together.
     """
+    from Py4GWCoreLib.Map import Map
+
+    def _safe_to_move() -> bool:
+        return Map.IsOutpost() or _sf_active()
+
     return BTComposite.Sequence(
         SCMovement.RunPath(
             Waypoints.PIKEN_TO_DUNGEON,
-            pre_move_check_fn=_sf_active,
+            pre_move_check_fn=_safe_to_move,
             recovery=RecoveryStrategy.STRAFE,
+            avoidance=AvoidanceConfig(),
+            log_fn=movement_log,
             name="Aura:GettingThere",
         ),
         name="GettingThere",
@@ -152,16 +158,16 @@ def _build_level1(coord: SCCoordinator) -> BehaviorTree:
     """
     return BTComposite.Sequence(
         # Move to Althea and take the quest.
-        SCMovement.Move(*Waypoints.ALTHEA_POS, pre_move_check_fn=_sf_active, name="Aura:MoveToAlthea"),
+        SCMovement.Move(*Waypoints.ALTHEA_POS, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Aura:MoveToAlthea"),
         SCActions.TakeQuest(
             quest_id=QuestID.ALTHEA_QUEST,
             npc_agent_id_fn=find_althea,
             name="TakeAltheaQuest",
         ),
         # Signal to the Dasher that this Aura has the quest.
-        coord.signal_node(Signals.QUEST_GRABBED, name="SignalQuestGrabbed"),
+        coord.signal_node(Signals.QUEST_GRABBED, name="SignalQuestGrabbed", log_fn=log),
         # Wait for Dasher to complete the gate glitch.
-        coord.wait_for_n_node(Signals.GATE_DONE, n=1, name="WaitGateDone"),
+        coord.wait_for_n_node(Signals.GATE_DONE, n=1, name="WaitGateDone", log_fn=log),
         name="Level1",
     )
 
@@ -178,6 +184,8 @@ def _build_level2(coord: SCCoordinator) -> BehaviorTree:
         SCMovement.RunPath(
             Waypoints.LEVEL2_ROUTE,
             pre_move_check_fn=_sf_active,
+            avoidance=AvoidanceConfig(),
+            log_fn=movement_log,
             name="Aura:Level2Run",
         ),
         name="Level2",
@@ -197,16 +205,16 @@ def _build_level3(coord: SCCoordinator) -> BehaviorTree:
     """
     return BTComposite.Sequence(
         # ── Enraged Phantom ──────────────────────────────────────────────
-        SCMovement.Move(*Waypoints.PHANTOM_POS, pre_move_check_fn=_sf_active, name="Aura:MoveToPhantom"),
+        SCMovement.Move(*Waypoints.PHANTOM_POS, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Aura:MoveToPhantom"),
         _dps_loop(coord, Barriers.PHANTOM_DEAD, find_enraged_phantom, "PhantomDPS"),
-        coord.barrier_node(Barriers.PHANTOM_DEAD, required=PARTY_SIZE, name="PhantomDeadBarrier"),
+        coord.barrier_node(Barriers.PHANTOM_DEAD, required=PARTY_SIZE, name="PhantomDeadBarrier", log_fn=log),
 
         # ── Boss ─────────────────────────────────────────────────────────
-        coord.wait_for_n_node(Signals.BOSS_TRIGGERED, n=1, name="WaitBossTriggered"),
-        SCMovement.Move(*Waypoints.BOSS_ROOM_POS, pre_move_check_fn=_sf_active, name="Aura:MoveToBossRoom"),
-        coord.barrier_node(Barriers.ALL_AT_BOSS, required=PARTY_SIZE, name="AllAtBossBarrier"),
+        coord.wait_for_n_node(Signals.BOSS_TRIGGERED, n=1, name="WaitBossTriggered", log_fn=log),
+        SCMovement.Move(*Waypoints.BOSS_ROOM_POS, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Aura:MoveToBossRoom"),
+        coord.barrier_node(Barriers.ALL_AT_BOSS, required=PARTY_SIZE, name="AllAtBossBarrier", log_fn=log),
         _dps_loop(coord, Barriers.BOSS_DEAD, find_varny, "VarnyDPS"),
-        coord.barrier_node(Barriers.BOSS_DEAD, required=PARTY_SIZE, name="BossDeadBarrier"),
+        coord.barrier_node(Barriers.BOSS_DEAD, required=PARTY_SIZE, name="BossDeadBarrier", log_fn=log),
         name="Level3",
     )
 
@@ -233,16 +241,24 @@ def _dps_loop(
         name:         Label for BT debug output.
     """
     import time
-    state: dict = {"last_skill_ms": 0.0}
+    state: dict = {"last_skill_ms": 0.0, "last_target": None}
     SKILL_INTERVAL_MS = 500  # How often to cycle skills.
 
     def _tick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
         # Done when the barrier is satisfied by all roles.
         if coord._is_satisfied(done_barrier, PARTY_SIZE):
+            log(f"{name}: barrier {done_barrier} satisfied — done")
             return BehaviorTree.NodeState.SUCCESS
 
         now = time.monotonic() * 1_000.0
         target = target_fn()
+
+        if target != state["last_target"]:
+            if target:
+                log(f"{name}: target acquired (agent {target})")
+            else:
+                log(f"{name}: target lost")
+            state["last_target"] = target
 
         if target and (now - state["last_skill_ms"]) >= SKILL_INTERVAL_MS:
             # Cycle Grenth's Aura, then Unseen Fury on the target.
@@ -252,6 +268,7 @@ def _dps_loop(
                 GLOBAL_CACHE.SkillBar.UseSkill(grents_slot, target)
             if fury_slot:
                 GLOBAL_CACHE.SkillBar.UseSkill(fury_slot, target)
+            log(f"{name}: Grenth's Aura + Unseen Fury on {target}")
             state["last_skill_ms"] = now
 
         return BehaviorTree.NodeState.RUNNING

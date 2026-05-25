@@ -1002,6 +1002,12 @@
         }
       },
       "observed_skills": {
+        "182": {
+          "id": 182,
+          "name": "Conjure Flame",
+          "profession": "Elementalist",
+          "profession_id": 6
+        },
         "194": {
           "id": 194,
           "name": "Flare",

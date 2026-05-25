@@ -42,14 +42,20 @@ from Py4GWCoreLib.sc_framework import (
     SCMovement, RecoveryStrategy,
     SCActions,
 )
+from Py4GWCoreLib.sc_framework.avoidance import AvoidanceConfig
 
-from ._shared import _slot_for
+from ._shared import _slot_for, log, movement_log
 from ..constants import (
     MapID, Barriers, Signals, SkillID, ModelID,
     Waypoints, GateClip, HoSSkip, PARTY_SIZE, BARBS_INTERVAL_MS,
 )
-from ..agents import find_enraged_phantom, find_varny, find_dungeon_entrance
-from ._shared import make_sf_upkeep, make_sod_upkeep, make_iau_upkeep, make_stuck_watchdog, make_consumable_service
+from ..outpost import OutpostHandler
+from ..agents import find_enraged_phantom, find_varny
+from ._shared import (
+    make_sf_upkeep, make_sod_upkeep, make_iau_upkeep,
+    make_dash_upkeep, make_dwarven_stability_upkeep,
+    make_stuck_watchdog, make_consumable_service,
+)
 
 
 # ── Variant ───────────────────────────────────────────────────────────────────
@@ -79,29 +85,34 @@ class DasherRole(SCRole):
         return SkillID.Barbs in skill_bar and SkillID.Dash in skill_bar
 
     def register_services(self) -> list[tuple[str, BehaviorTree]]:
+        self.outpost = OutpostHandler(
+            exit_pos=Waypoints.PIKEN_OUTPOST_EXIT,
+            label="Outpost — Piken Square",
+        )
         dc_slot = _slot_for(SkillID.DeathsCharge)
         dc_recovery = (
             lambda: GLOBAL_CACHE.SkillBar.UseSkill(dc_slot)
             if dc_slot else None
         )
         return [
-            ("ShadowForm",    make_sf_upkeep()),
-            ("Shroud",        make_sod_upkeep()),
-            ("IAU",           make_iau_upkeep()),
-            ("Consumables",   make_consumable_service()),
-            ("StuckWatch",    make_stuck_watchdog(dc_recovery)),
+            ("ShadowForm",       make_sf_upkeep()),
+            ("Shroud",           make_sod_upkeep()),
+            ("IAU",              make_iau_upkeep()),
+            ("Dash",             make_dash_upkeep()),
+            ("DwarvenStability", make_dwarven_stability_upkeep()),
+            ("Consumables",      make_consumable_service()),
+            ("StuckWatch",       make_stuck_watchdog(dc_recovery)),
         ]
 
     def build_planner(self, coord: SCCoordinator) -> BehaviorTree:
         variant = _detect_variant()
-        return BehaviorTree(
-            BTComposite.Sequence(
-                _build_getting_there(),
-                _build_level1(coord),
-                _build_level2(coord),
-                _build_level3(coord, variant),
-                name="DasherPlanner",
-            )
+        return BTComposite.Sequence(
+            self.outpost.build_node(name="Dasher:Outpost"),
+            _build_getting_there(),
+            _build_level1(coord),
+            _build_level2(coord),
+            _build_level3(coord, variant),
+            name="DasherPlanner",
         )
 
 
@@ -118,25 +129,28 @@ def _mono_ms() -> float:
 
 def _build_getting_there() -> BehaviorTree:
     """
-    Travel from Piken Square to TotF Level 1.
+    Travel from The Breach / Verdant Cascades to TotF Level 1.
 
-    Walking the PIKEN_TO_DUNGEON path naturally crosses the zone boundary from
-    map 40 into map 102.  After the path ends at the dungeon entrance, we
-    interact with the portal and wait for the map to load.
+    Outpost exit is handled by the OutpostHandler step that precedes this in
+    the planner sequence.  This function owns only the explorable portion:
+
+    1. RunPath through Verdant Cascades with avoidance to the dungeon
+       entrance portal.  SF must be active before each step (cast by the
+       upkeep service while the node waits with RUNNING).
+       Walking into the portal crosses the zone line automatically — no
+       NPC interaction required.
+    2. Wait for the instance map to finish loading.
     """
     from Py4GWCoreLib.Map import Map
 
     return BTComposite.Sequence(
         SCMovement.RunPath(
-            Waypoints.PIKEN_TO_DUNGEON,
+            Waypoints.VERDANT_TO_DUNGEON,
             pre_move_check_fn=_sf_active,
             recovery=RecoveryStrategy.STRAFE,
+            avoidance=AvoidanceConfig(),
+            log_fn=movement_log,
             name="Dasher:GettingThere",
-        ),
-        SCActions.InteractNPC(
-            find_dungeon_entrance,
-            timeout_ms=10_000,
-            name="Dasher:EnterDungeon",
         ),
         SCActions.WaitForCondition(
             lambda: Map.GetMapID() == MapID.TUNNELS_LEVEL1,
@@ -165,6 +179,8 @@ def _build_level1(coord: SCCoordinator) -> BehaviorTree:
             Waypoints.LEVEL1_MAIN_RUNNER,
             pre_move_check_fn=_sf_active,
             recovery=RecoveryStrategy.STRAFE,
+            avoidance=AvoidanceConfig(),
+            log_fn=movement_log,
             name="Dasher:Level1Run",
         ),
         _build_hos_skip(),
@@ -172,11 +188,13 @@ def _build_level1(coord: SCCoordinator) -> BehaviorTree:
             Waypoints.HOS_POST_SKIP,
             pre_move_check_fn=_sf_active,
             recovery=RecoveryStrategy.STRAFE,
+            avoidance=AvoidanceConfig(),
+            log_fn=movement_log,
             name="Dasher:PostSkipRun",
         ),
         _build_gate_clip_node(),
-        coord.wait_for_n_node(Signals.QUEST_GRABBED, n=PARTY_SIZE - 1, name="WaitQuestGrabbed"),
-        coord.signal_node(Signals.GATE_DONE, name="SignalGateDone"),
+        coord.wait_for_n_node(Signals.QUEST_GRABBED, n=PARTY_SIZE - 1, name="WaitQuestGrabbed", log_fn=log),
+        coord.signal_node(Signals.GATE_DONE, name="SignalGateDone", log_fn=log),
         name="Level1",
     )
 
@@ -205,6 +223,7 @@ def _build_hos_skip() -> BehaviorTree:
     }
 
     def _transition(phase: str) -> None:
+        log(f"HoSSkip: → {phase}")
         state["phase"]    = phase
         state["phase_ms"] = _mono_ms()
 
@@ -240,7 +259,9 @@ def _build_hos_skip() -> BehaviorTree:
             elif elapsed >= HoSSkip.FIND_TIMEOUT_MS:
                 state["retries"] += 1
                 if state["retries"] > HoSSkip.MAX_RETRIES:
+                    log("HoSSkip: FAILED — max retries reached")
                     return BehaviorTree.NodeState.FAILURE
+                log(f"HoSSkip: target not found, retry {state['retries']}/{HoSSkip.MAX_RETRIES}")
                 _transition("find_target")
 
         elif phase == "cast":
@@ -252,13 +273,16 @@ def _build_hos_skip() -> BehaviorTree:
         elif phase == "verify":
             _px, py = Player.GetXY()
             if py > HoSSkip.SUCCESS_Y:
+                log("HoSSkip: SUCCESS")
                 state["phase"]   = "find_target"
                 state["retries"] = 0
                 return BehaviorTree.NodeState.SUCCESS
             if elapsed >= HoSSkip.VERIFY_MS:
                 state["retries"] += 1
                 if state["retries"] > HoSSkip.MAX_RETRIES:
+                    log("HoSSkip: FAILED — max retries reached")
                     return BehaviorTree.NodeState.FAILURE
+                log(f"HoSSkip: cast did not land, retry {state['retries']}/{HoSSkip.MAX_RETRIES}")
                 _transition("find_target")
 
         return BehaviorTree.NodeState.RUNNING
@@ -316,6 +340,7 @@ def _build_gate_clip_node() -> BehaviorTree:
         return _now() - state["phase_ms"]
 
     def _transition(phase: str) -> None:
+        log(f"GateClip: → {phase}")
         state["phase"]    = phase
         state["phase_ms"] = _now()
 
@@ -443,6 +468,7 @@ def _build_gate_clip_node() -> BehaviorTree:
                     state["clip_phase_ms"] = now
 
             if py > GateClip.SUCCESS_Y and px > GateClip.SUCCESS_MIN_X:
+                log("GateClip: SUCCESS — through the gate")
                 _release_all()
                 Camera.SetYaw(_WALK_YAW)
                 Player.Move(*GateClip.DEST_POS)
@@ -453,7 +479,9 @@ def _build_gate_clip_node() -> BehaviorTree:
                 _release_all()
                 state["retry"] += 1
                 if state["retry"] > _MAX_RETRIES:
+                    log("GateClip: FAILED — max retries reached")
                     return BehaviorTree.NodeState.FAILURE
+                log(f"GateClip: clip timeout, retry {state['retry']}/{_MAX_RETRIES}")
                 _transition("approach")
 
         return BehaviorTree.NodeState.RUNNING
@@ -468,6 +496,8 @@ def _build_level2(coord: SCCoordinator) -> BehaviorTree:
         SCMovement.RunPath(
             Waypoints.LEVEL2_ROUTE,
             pre_move_check_fn=_sf_active,
+            avoidance=AvoidanceConfig(),
+            log_fn=movement_log,
             name="Dasher:Level2Run",
         ),
         name="Level2",
@@ -494,18 +524,18 @@ def _build_level3(coord: SCCoordinator, variant: DasherVariant) -> BehaviorTree:
         )
 
     return BTComposite.Sequence(
-        SCMovement.Move(*Waypoints.PHANTOM_POS, pre_move_check_fn=_sf_active, name="Dasher:MoveToPhantom"),
+        SCMovement.Move(*Waypoints.PHANTOM_POS, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Dasher:MoveToPhantom"),
         *hex_phantom_steps,
-        coord.barrier_node(Barriers.PHANTOM_DEAD, required=PARTY_SIZE, name="PhantomDeadBarrier"),
+        coord.barrier_node(Barriers.PHANTOM_DEAD, required=PARTY_SIZE, name="PhantomDeadBarrier", log_fn=log),
 
         SCActions.PickupNearestItem(ModelID.BOSS_KEY, name="PickupBossKey"),
-        SCMovement.Move(*Waypoints.CLIFFSIDE_TRIGGER, pre_move_check_fn=_sf_active, name="Dasher:MoveToCliffside"),
-        coord.signal_node(Signals.BOSS_TRIGGERED, name="SignalBossTriggered"),
+        SCMovement.Move(*Waypoints.CLIFFSIDE_TRIGGER, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Dasher:MoveToCliffside"),
+        coord.signal_node(Signals.BOSS_TRIGGERED, name="SignalBossTriggered", log_fn=log),
 
-        SCMovement.Move(*Waypoints.BOSS_ROOM_POS, pre_move_check_fn=_sf_active, name="Dasher:MoveToBossRoom"),
-        coord.barrier_node(Barriers.ALL_AT_BOSS, required=PARTY_SIZE, name="AllAtBossBarrier"),
+        SCMovement.Move(*Waypoints.BOSS_ROOM_POS, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Dasher:MoveToBossRoom"),
+        coord.barrier_node(Barriers.ALL_AT_BOSS, required=PARTY_SIZE, name="AllAtBossBarrier", log_fn=log),
         _barbs_loop_on_varny(coord, variant),
-        coord.barrier_node(Barriers.BOSS_DEAD, required=PARTY_SIZE, name="BossDeadBarrier"),
+        coord.barrier_node(Barriers.BOSS_DEAD, required=PARTY_SIZE, name="BossDeadBarrier", log_fn=log),
         name="Level3",
     )
 
@@ -521,11 +551,15 @@ def _barbs_loop_on_varny(coord: SCCoordinator, variant: DasherVariant) -> Behavi
         if (now - state["last_barbs_ms"]) >= BARBS_INTERVAL_MS:
             target = find_varny()
             if target:
+                log(f"BarbsLoop: applying Barbs on Varny (agent {target})")
                 GLOBAL_CACHE.SkillBar.UseSkill(_slot_for(SkillID.Barbs), target)
                 if variant == DasherVariant.MOP:
                     mop_slot = _slot_for(SkillID.MarkOfPain)
                     if mop_slot:
+                        log("BarbsLoop: applying Mark of Pain")
                         GLOBAL_CACHE.SkillBar.UseSkill(mop_slot, target)
+            else:
+                log("BarbsLoop: Varny not found this tick")
             state["last_barbs_ms"] = now
 
         return BehaviorTree.NodeState.RUNNING

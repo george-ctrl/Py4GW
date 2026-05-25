@@ -64,8 +64,7 @@ class AvoidanceConfig:
     agent_radius:      float = 60.0   # treat each agent as a circle of this radius
 
     # ── Escalation ────────────────────────────────────────────────────────
-    escalation_ticks:  int   = 20     # strafe ticks before escalating to yaw_adjust
-                                      # lower = faster escalation on stubborn obstacles
+    escalation_ms:     float = 300.0   # ms in STRAFE before escalating to yaw_adjust
 
     # ── Strafe strategy ───────────────────────────────────────────────────
     strafe_release_margin: float = 40.0  # release strafe when lateral clearance > this
@@ -102,7 +101,7 @@ class AvoidanceSentinel:
         2. CLEAR  → release all held keys, reset strategy to STRAFE.
         3. BLOCKED (STRAFE phase):
               hold StrafeLeft or StrafeRight away from the obstacle.
-              After escalation_ticks consecutive strafe ticks with no clearance,
+              After escalation_ms ms in STRAFE with no clearance,
               promote to YAW_ADJUST.
         4. BLOCKED (YAW_ADJUST phase):
               rotate Camera.SetYaw ± deflect_angle_deg away from the obstacle,
@@ -120,12 +119,17 @@ class AvoidanceSentinel:
         self._cfg              = config
         self._goal_fn          = goal_fn
         self._active_keys:     set[int] = set()
-        self._avoiding         = False
-        self._current_strategy = AvoidStrategy.STRAFE
-        self._strafe_ticks     = 0
-        self._last_sample:     ObstacleSample | None = None
-        self._last_log:        dict[str, float] = {}
-        self._last_yaw:        float | None = None
+        self._avoiding           = False
+        self._current_strategy   = AvoidStrategy.STRAFE
+        self._strafe_start_ms:   float = 0.0
+        self._sticky_blocker_id: int | None = None
+        self._last_sample:       ObstacleSample | None = None
+        self._last_log:          dict[str, float] = {}
+        self._last_yaw:          float | None = None
+        self._last_alive_ms:     float = 0.0
+        # Set by wrap_path to allow skipping a waypoint whose position is
+        # occupied by an enemy.  Returns the next waypoint or None if at end.
+        self._next_goal_fn = None
 
     # ── factory helpers ───────────────────────────────────────────────────
 
@@ -189,11 +193,37 @@ class AvoidanceSentinel:
 
         sentinel = cls(config, _goal_fn)
 
+        def _next_goal_fn():
+            i = wp_idx[0] + 1
+            if i >= len(wp_list):
+                return None
+            return (float(wp_list[i][0]), float(wp_list[i][1]))
+
+        sentinel._next_goal_fn = _next_goal_fn
+
         wrapped: list[BehaviorTree] = []
         for i, (step, wp) in enumerate(zip(step_trees, waypoints)):
             def _make_arrive_wrapper(idx: int, coords: tuple) -> BehaviorTree:
                 def _tick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
+                    # Release held keys and reset avoidance state so the next
+                    # waypoint starts cleanly (no strafe bleed between steps).
+                    sentinel._release_all()
+                    sentinel._avoiding          = False
+                    sentinel._current_strategy  = AvoidStrategy.STRAFE
+                    sentinel._strafe_start_ms   = 0.0
+                    sentinel._sticky_blocker_id = None
+                    sentinel._last_yaw          = None
                     wp_idx[0] = idx + 1
+                    # Pre-issue movement to the next waypoint immediately so
+                    # there is no gap while BTMovement.Move waits for its first
+                    # internal Player.Move poll on the new step.
+                    next_idx = idx + 1
+                    if next_idx < len(wp_list):
+                        try:
+                            from Py4GWCoreLib.Player import Player as _P
+                            _P.Move(float(wp_list[next_idx][0]), float(wp_list[next_idx][1]))
+                        except Exception:
+                            pass
                     if outer_on_arrive is not None:
                         outer_on_arrive(idx, (float(coords[0]), float(coords[1])))
                     return BehaviorTree.NodeState.SUCCESS
@@ -210,21 +240,55 @@ class AvoidanceSentinel:
 
     def _tick_avoidance(self) -> None:
         from Py4GWCoreLib.Player import Player
+        now_ms = _now_ms()
+        if now_ms - self._last_alive_ms >= 1_000.0:
+            self._log_event("alive", f"Avoidance sentinel alive — goal={self._goal_fn()}")
+            self._last_alive_ms = now_ms
+
         px, py = Player.GetXY()
         goal   = self._goal_fn()
         sample = self._sample(px, py, goal)
+
+        # ── sticky blocker: once committed to avoiding an agent, keep it
+        # as the active blocker until it leaves the corridor.  Without this,
+        # the sample flip-flops between enemies on opposite sides each tick,
+        # causing the yaw-adjust direction to oscillate and the character to spin.
+        if self._avoiding and self._sticky_blocker_id is not None:
+            sticky = self._sample_single(self._sticky_blocker_id, px, py, goal)
+            if sticky is not None:
+                sample = sticky
+            else:
+                self._sticky_blocker_id = None  # left the corridor
+
+        # Publish state for draw_path_overlay() — always update, even when clear.
+        try:
+            from Py4GWCoreLib.sc_framework.movement import _overlay as _mov_ovl
+            _mov_ovl["avoid_cfg"]    = self._cfg
+            _mov_ovl["avoid_sample"] = sample
+            _mov_ovl["avoid_goal"]   = goal
+        except Exception:
+            pass
 
         if sample is None:
             if self._avoiding:
                 self._log_event("clear", "Avoidance CLEAR — corridor open, releasing keys")
                 self._release_all()
-                self._avoiding         = False
-                self._current_strategy = AvoidStrategy.STRAFE
-                self._strafe_ticks     = 0
-                self._last_yaw         = None
+                # Re-issue destination immediately — both STRAFE and YAW_ADJUST
+                # cancel GW's click-to-move, so we restore it explicitly on clear.
+                try:
+                    Player.Move(*self._goal_fn())
+                except Exception:
+                    pass
+                self._avoiding          = False
+                self._current_strategy  = AvoidStrategy.STRAFE
+                self._strafe_start_ms   = 0.0
+                self._sticky_blocker_id = None
+                self._last_yaw          = None
         else:
             self._last_sample = sample
             if not self._avoiding:
+                self._sticky_blocker_id = sample.agent_id
+                self._strafe_start_ms   = now_ms
                 side = "LEFT" if sample.is_left else "RIGHT"
                 self._log_event(
                     "start",
@@ -234,18 +298,18 @@ class AvoidanceSentinel:
                 )
             self._avoiding = True
 
-            # ── escalation ────────────────────────────────────────────────
+            # ── escalation (time-based, not frame-count) ──────────────────
+            strafe_elapsed = now_ms - self._strafe_start_ms
             if self._current_strategy == AvoidStrategy.STRAFE:
-                self._strafe_ticks += 1
-                if self._strafe_ticks >= self._cfg.escalation_ticks:
+                if strafe_elapsed >= self._cfg.escalation_ms:
                     self._log_event(
                         "escalate",
                         f"Avoidance ESCALATE → YAW_ADJUST  "
-                        f"after {self._strafe_ticks} strafe ticks  "
-                        f"(threshold={self._cfg.escalation_ticks})",
+                        f"after {strafe_elapsed:.0f}ms  "
+                        f"(threshold={self._cfg.escalation_ms:.0f}ms)",
                     )
                     self._current_strategy = AvoidStrategy.YAW_ADJUST
-                    self._release_all()   # drop strafe keys before switching
+                    self._release_all()
 
             # ── apply strategy ────────────────────────────────────────────
             if self._current_strategy == AvoidStrategy.STRAFE:
@@ -258,8 +322,31 @@ class AvoidanceSentinel:
                 f"Avoidance TICK [{self._current_strategy}]  "
                 f"agent={sample.agent_id}  dist={sample.distance:.0f}  "
                 f"dot={sample.dot:.0f}  cross={sample.cross:.0f}  "
-                f"strafe_ticks={self._strafe_ticks}/{self._cfg.escalation_ticks}",
+                f"strafe_ms={strafe_elapsed:.0f}/{self._cfg.escalation_ms:.0f}",
             )
+
+            # ── goal-skip ─────────────────────────────────────────────────
+            # If the blocker is sitting on the current waypoint, redirect
+            # Player.Move to the next one so the character keeps moving forward
+            # and naturally passes through the blocked waypoint's tolerance zone.
+            if self._next_goal_fn is not None:
+                enemy_to_goal = math.hypot(
+                    sample.position[0] - goal[0],
+                    sample.position[1] - goal[1],
+                )
+                if enemy_to_goal < self._cfg.path_half_width + self._cfg.agent_radius:
+                    next_goal = self._next_goal_fn()
+                    if next_goal is not None:
+                        try:
+                            Player.Move(*next_goal)
+                        except Exception:
+                            pass
+                        self._log_event(
+                            "goal_skip",
+                            f"Goal blocked — agent {sample.agent_id}"
+                            f" dist_to_goal={enemy_to_goal:.0f}"
+                            f"  steering to next waypoint {next_goal}",
+                        )
 
     # ── sample ────────────────────────────────────────────────────────────
 
@@ -321,6 +408,44 @@ class AvoidanceSentinel:
 
         return best
 
+    def _sample_single(
+        self,
+        agent_id: int,
+        px:       float,
+        py:       float,
+        goal:     tuple[float, float],
+    ) -> "ObstacleSample | None":
+        """Return an ObstacleSample for a specific agent if it is still alive and
+        inside the path corridor, or None if it has left."""
+        from Py4GWCoreLib.Agent import Agent
+        try:
+            if not Agent.IsAlive(agent_id):
+                return None
+            ax, ay = Agent.GetXY(agent_id)
+            gdx = goal[0] - px
+            gdy = goal[1] - py
+            gdist = math.hypot(gdx, gdy)
+            if gdist < 1.0:
+                return None
+            gx = gdx / gdist
+            gy = gdy / gdist
+            tox   = ax - px
+            toy   = ay - py
+            dot   = gx * tox + gy * toy
+            cross = gx * toy - gy * tox
+            dist  = math.hypot(tox, toy)
+            if (dot <= self._cfg.agent_radius
+                    or dist > self._cfg.check_radius
+                    or abs(cross) > self._cfg.path_half_width + self._cfg.agent_radius):
+                return None
+            return ObstacleSample(
+                agent_id=agent_id, position=(ax, ay),
+                dot=dot, cross=cross, distance=dist,
+            )
+        except Exception:
+            return None
+
+
     # ── strategies ────────────────────────────────────────────────────────
 
     def _apply_strafe(self, obs: ObstacleSample) -> None:
@@ -348,18 +473,16 @@ class AvoidanceSentinel:
         goal:       tuple[float, float],
     ) -> None:
         """
-        Arc around the obstacle by rotating the camera and holding MoveForward.
+        Steer around the obstacle by issuing Player.Move toward a deflected
+        point so GW's pathfinder handles terrain and never gets wall-stuck.
+        No keys are held, so click-to-move is never cancelled.
 
         goal_yaw = atan2(goal_dy, goal_dx)              — direction to waypoint
         sign     = -1 if obstacle left, +1 if right     — deflect away
         new_yaw  = goal_yaw + sign * deflect_rad
-
-        Camera.SetYaw is called every tick because GW resets it each frame.
-        MoveForward cancels click-to-move in GW; BTMovement.Move will re-issue
-        Player.Move on the next tick when keys are released.
+        target   = player + new_yaw_dir * max(dist_to_goal, 200)
         """
-        from Py4GWCoreLib.Camera import Camera
-        from Py4GWCoreLib.enums_src.UI_enums import ControlAction
+        from Py4GWCoreLib.Player import Player
 
         gdx = goal[0] - player_pos[0]
         gdy = goal[1] - player_pos[1]
@@ -368,8 +491,10 @@ class AvoidanceSentinel:
         sign        = -1.0 if obs.is_left else 1.0
         new_yaw     = goal_yaw + sign * deflect_rad
 
-        Camera.SetYaw(new_yaw)
-        self._hold_key(ControlAction.ControlAction_MoveForward.value)
+        dist_to_goal = math.hypot(gdx, gdy)
+        deflect_dist = max(dist_to_goal, 200.0)
+        target_x = player_pos[0] + math.cos(new_yaw) * deflect_dist
+        target_y = player_pos[1] + math.sin(new_yaw) * deflect_dist
 
         if self._last_yaw != new_yaw:
             side = "LEFT" if obs.is_left else "RIGHT"
@@ -380,6 +505,11 @@ class AvoidanceSentinel:
                 f"→ {math.degrees(new_yaw):.1f}°",
             )
             self._last_yaw = new_yaw
+
+        try:
+            Player.Move(target_x, target_y)
+        except Exception:
+            pass
 
     # ── key management ────────────────────────────────────────────────────
 
@@ -463,10 +593,10 @@ class AvoidanceDebugPanel:
 
         # ── Escalation ────────────────────────────────────────────────────
         PyImGui.text("Escalation")
-        self.config.escalation_ticks = PyImGui.slider_int(
-            "Escalation ticks##av", self.config.escalation_ticks, 1, 120
+        self.config.escalation_ms = PyImGui.slider_float(
+            "Escalation ms##av", self.config.escalation_ms, 100.0, 5000.0
         )
-        PyImGui.text("  (ticks in STRAFE before switching to YAW_ADJUST)")
+        PyImGui.text("  (ms in STRAFE before switching to YAW_ADJUST)")
 
         PyImGui.separator()
 
@@ -495,9 +625,10 @@ class AvoidanceDebugPanel:
             strategy_str = self.sentinel._current_strategy
             PyImGui.text(f"  State:    {state_str}")
             PyImGui.text(f"  Strategy: {strategy_str}")
+            elapsed_strafe = _now_ms() - self.sentinel._strafe_start_ms
             PyImGui.text(
-                f"  Strafe ticks: {self.sentinel._strafe_ticks} / "
-                f"{self.config.escalation_ticks}"
+                f"  Strafe ms: {elapsed_strafe:.0f} / "
+                f"{self.config.escalation_ms:.0f}"
             )
             s = self.sentinel._last_sample
             if s is not None:

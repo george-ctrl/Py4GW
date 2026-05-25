@@ -63,6 +63,12 @@ class SCRuntime:
             isolation_enabled=isolation_enabled,
         )
 
+        # SC characters run Shadow Form and must never engage in combat.
+        # Disabling HeroAI prevents the character from attacking, using skills
+        # for combat, or looting — all of which interfere with the run-through.
+        tree.DisableHeadlessHeroAI(reset_runtime=False)
+        tree.DisableLooting()
+
         # Register parallel services before starting the planner.
         for service_name, service_tree in role.register_services():
             tree.AddServiceTree(service_name, service_tree)

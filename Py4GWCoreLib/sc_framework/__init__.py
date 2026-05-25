@@ -33,7 +33,8 @@ Runtime:
 """
 
 from .coordinator import SCCoordinator
-from .movement    import SCMovement, RecoveryStrategy
+from .movement    import SCMovement, RecoveryStrategy, draw_path_overlay
+from .avoidance   import AvoidanceConfig
 from .services    import UpkeepService, StuckWatchdog, PartyFollowService, PeriodicService
 from .actions     import SCActions
 from .role        import SCRole, register_role
@@ -43,6 +44,8 @@ __all__ = [
     "SCCoordinator",
     "SCMovement",
     "RecoveryStrategy",
+    "draw_path_overlay",
+    "AvoidanceConfig",
     "UpkeepService",
     "StuckWatchdog",
     "PartyFollowService",

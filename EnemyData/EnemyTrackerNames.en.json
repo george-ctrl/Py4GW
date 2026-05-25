@@ -138,23 +138,42 @@
       "Charr Mind Spark"
     ],
     "enc:\\\\x1017\\\\xA067\\\\xA6BC\\\\x5983": [
-      "Charr Mind Spark"
+      "Charr Mind Spark",
+      "Agent 27",
+      "Agent 36",
+      "Agent 28",
+      "Agent 37",
+      "Agent 25",
+      "Agent 26",
+      "Agent 38"
     ],
     "enc:\\\\x1018\\\\xD4E8\\\\xA369\\\\x4F65": [
       "Agent 176",
       "Charr Ashen Claw",
       "Agent 19",
-      "Agent 201"
+      "Agent 201",
+      "Agent 18",
+      "Agent 20"
     ],
     "enc:\\\\x1019\\\\xAA05\\\\xFF37\\\\x22B0": [
-      "Charr Ash Walker"
+      "Charr Ash Walker",
+      "Agent 22",
+      "Agent 25",
+      "Agent 23",
+      "Agent 24"
     ],
     "enc:\\\\x101A\\\\x965A\\\\x4E10": [
       "Agent 25",
       "Agent 26",
       "Agent 27",
       "Agent 28",
-      "Charr Ash Walker"
+      "Charr Ash Walker",
+      "Agent 19",
+      "Agent 20",
+      "Agent 21",
+      "Agent 22",
+      "Agent 23",
+      "Agent 24"
     ],
     "enc:\\\\x101B\\\\xC825\\\\xA6F1\\\\x0860": [
       "Agent 182",
@@ -165,11 +184,19 @@
     ],
     "enc:\\\\x101D\\\\xF6E5\\\\xD15C\\\\x2F5F": [
       "Agent 31",
-      "Charr Fire Caller"
+      "Charr Fire Caller",
+      "Agent 19"
     ],
     "enc:\\\\x101F\\\\xFBDA\\\\x868C\\\\x6A2E": [
       "Agent 22",
-      "Charr Fire Caller"
+      "Charr Fire Caller",
+      "Agent 28",
+      "Agent 18",
+      "Agent 24",
+      "Agent 30",
+      "Agent 33",
+      "Agent 23",
+      "Agent 29"
     ],
     "enc:\\\\x1020\\\\xC9A0\\\\x903A\\\\x2DF3": [
       "Agent 175",
@@ -183,7 +210,13 @@
       "Charr Martyr"
     ],
     "enc:\\\\x1023\\\\xEE3B\\\\xD5C7\\\\x7109": [
-      "Charr Martyr"
+      "Charr Martyr",
+      "Agent 24",
+      "Agent 26",
+      "Agent 25",
+      "Agent 29",
+      "Agent 31",
+      "Agent 28"
     ],
     "enc:\\\\x1025\\\\xA8BD\\\\xC478\\\\x47C2": [
       "Agent 62",
@@ -193,7 +226,15 @@
     ],
     "enc:\\\\x1026\\\\x99E9\\\\x7770": [
       "Agent 28",
-      "Charr Axe Warrior"
+      "Charr Axe Warrior",
+      "Agent 32",
+      "Agent 38",
+      "Agent 39",
+      "Agent 30",
+      "Agent 35",
+      "Agent 36",
+      "Agent 33",
+      "Agent 29"
     ],
     "enc:\\\\x1027\\\\x838D\\\\x301E": [
       "Agent 58",
@@ -203,10 +244,19 @@
       "Agent 170"
     ],
     "enc:\\\\x1028\\\\xA504\\\\x339A": [
-      "Charr Blade Warrior"
+      "Charr Blade Warrior",
+      "Agent 34",
+      "Agent 33",
+      "Agent 31",
+      "Agent 29",
+      "Agent 32",
+      "Agent 27",
+      "Agent 41"
     ],
     "enc:\\\\x1029\\\\xA86D\\\\x8515\\\\x05F4": [
-      "Charr Blade Warrior"
+      "Charr Blade Warrior",
+      "Agent 14",
+      "Agent 28"
     ],
     "enc:\\\\x102A\\\\xE056\\\\x87F8\\\\x1694": [
       "Agent 44",
@@ -216,10 +266,26 @@
     ],
     "enc:\\\\x102C\\\\xEC41\\\\xF305\\\\x72A4": [
       "Agent 30",
-      "Charr Stalker"
+      "Charr Stalker",
+      "Agent 34",
+      "Agent 37",
+      "Agent 31",
+      "Agent 32",
+      "Agent 44",
+      "Agent 38",
+      "Agent 33"
     ],
     "enc:\\\\x102D\\\\xB6F2\\\\xBA80\\\\x7C1B": [
-      "Charr Stalker"
+      "Charr Stalker",
+      "Agent 23",
+      "Agent 27",
+      "Agent 33",
+      "Agent 30",
+      "Agent 24",
+      "Agent 36",
+      "Agent 25",
+      "Agent 32",
+      "Agent 31"
     ],
     "enc:\\\\x102F\\\\xE176\\\\x9FFE\\\\x1977": [
       "Agent 178",

@@ -42,16 +42,18 @@ class Signals:
 class SkillID:
     ShadowForm       = 826
     ShroudOfDistress = 1031
-    DeadlyParadox    = 572
-    Barbs            = 101
+    IAmUnstoppable   = 2356
+    DwarvenStability = 2423
     Dash             = 1043
-    DwarvenStability = 3422
-    GrentsAura       = 1467
-    EbonEscape       = 2996
-    UnseenFury       = 2302
-    MarkOfPain       = 1638
-    DeathsCharge     = 2278
+    Barbs            = 101
     HeartOfShadow    = 1032
+    DeathsCharge     = 952
+    EbonEscape       = 2420
+    FinishHim        = 2353
+    UnseenFury       = 1041
+    GrentsAura       = 2013
+    DeadlyParadox    = 572
+    MarkOfPain       = 1638
 
 
 # ── Model IDs ─────────────────────────────────────────────────────────────────
@@ -73,11 +75,14 @@ class QuestID:
 # ── Waypoints ─────────────────────────────────────────────────────────────────
 
 class Waypoints:
-    # Getting There: Piken Square exit → Verdant Cascades → TotF entrance.
-    # The first waypoint is the Piken Square exit portal; walking toward it
-    # triggers the zone transition into map 102.
-    PIKEN_TO_DUNGEON: list[tuple[float, float]] = [
-        (20494.66, 6629.92),
+    # Getting There: Piken Square exit portal (outpost coordinates).
+    # Use SCMovement.Move without avoidance for this step; the zone transition
+    # into Verdant Cascades happens automatically when the player reaches the portal.
+    PIKEN_OUTPOST_EXIT: tuple[float, float] = (20494.66, 6629.92)
+
+    # Getting There: Verdant Cascades → TotF entrance (explorable coordinates).
+    # Use SCMovement.RunPath with avoidance after the zone transition.
+    VERDANT_TO_DUNGEON: list[tuple[float, float]] = [
         (20846.21, 5982.23),
         (21000.13, 5384.71),
         (20997.68, 4809.39),
