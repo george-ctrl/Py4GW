@@ -124,6 +124,19 @@ def _sf_active() -> bool:
 def _mono_ms() -> float:
     return time.monotonic() * 1_000.0
 
+def _point_in_polygon(px: float, py: float, polygon: tuple) -> bool:
+    """Ray-casting point-in-polygon test (Jordan curve theorem)."""
+    inside = False
+    n = len(polygon)
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i]
+        xj, yj = polygon[j]
+        if ((yi > py) != (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
+
 
 # ── Getting There ─────────────────────────────────────────────────────────────
 
@@ -174,14 +187,23 @@ def _build_level1(coord: SCCoordinator) -> BehaviorTree:
     5. Wait for all Auras to signal QUEST_GRABBED (safety valve if runner is too fast).
     6. Signal GATE_DONE so Auras know they can proceed.
     """
+    hos_pos = Waypoints.LEVEL1_MAIN_RUNNER[-1]
     return BTComposite.Sequence(
         SCMovement.RunPath(
-            Waypoints.LEVEL1_MAIN_RUNNER,
+            Waypoints.LEVEL1_MAIN_RUNNER[:-1],
             pre_move_check_fn=_sf_active,
             recovery=RecoveryStrategy.STRAFE,
             avoidance=AvoidanceConfig(),
             log_fn=movement_log,
             name="Dasher:Level1Run",
+        ),
+        # Final approach to the HoS skip wall — no avoidance so enemies near
+        # the wall do not deflect the character away from the required position.
+        SCMovement.Move(
+            *hos_pos,
+            pre_move_check_fn=_sf_active,
+            log_fn=movement_log,
+            name="Dasher:HoSApproach",
         ),
         _build_hos_skip(),
         SCMovement.RunPath(
@@ -207,7 +229,8 @@ def _build_hos_skip() -> BehaviorTree:
 
     The skip targets the nearest alive hostile that is generally west of the
     player (agent.x < player.x - HoSSkip.WEST_THRESHOLD) and within cast
-    range.  After casting, success is confirmed when player.y > HoSSkip.SUCCESS_Y.
+    range.  After casting, success is confirmed when the player lands inside
+    HoSSkip.SUCCESS_POLYGON (the known landing area on the other side of the wall).
 
     State machine:
         FIND_TARGET  scan enemies; if found advance to CAST; timeout → retry
@@ -271,8 +294,8 @@ def _build_hos_skip() -> BehaviorTree:
             _transition("verify")
 
         elif phase == "verify":
-            _px, py = Player.GetXY()
-            if py > HoSSkip.SUCCESS_Y:
+            px, py = Player.GetXY()
+            if _point_in_polygon(px, py, HoSSkip.SUCCESS_POLYGON):
                 log("HoSSkip: SUCCESS")
                 state["phase"]   = "find_target"
                 state["retries"] = 0

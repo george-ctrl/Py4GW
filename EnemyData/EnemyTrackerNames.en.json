@@ -110,7 +110,9 @@
       "Spirit of Quickening Zephyr",
       "Agent 84",
       "Agent 112",
-      "Agent 255"
+      "Agent 255",
+      "Agent 78",
+      "Agent 103"
     ],
     "enc:\\\\x0F99\\\\x863D\\\\xD474\\\\x6ACA": [
       "Spirit of Nature's Renewal",
@@ -145,7 +147,10 @@
       "Agent 37",
       "Agent 25",
       "Agent 26",
-      "Agent 38"
+      "Agent 38",
+      "Agent 30",
+      "Agent 31",
+      "Agent 40"
     ],
     "enc:\\\\x1018\\\\xD4E8\\\\xA369\\\\x4F65": [
       "Agent 176",
@@ -196,7 +201,9 @@
       "Agent 30",
       "Agent 33",
       "Agent 23",
-      "Agent 29"
+      "Agent 29",
+      "Agent 31",
+      "Agent 34"
     ],
     "enc:\\\\x1020\\\\xC9A0\\\\x903A\\\\x2DF3": [
       "Agent 175",
@@ -216,7 +223,9 @@
       "Agent 25",
       "Agent 29",
       "Agent 31",
-      "Agent 28"
+      "Agent 28",
+      "Agent 27",
+      "Agent 30"
     ],
     "enc:\\\\x1025\\\\xA8BD\\\\xC478\\\\x47C2": [
       "Agent 62",
@@ -234,7 +243,8 @@
       "Agent 35",
       "Agent 36",
       "Agent 33",
-      "Agent 29"
+      "Agent 29",
+      "Agent 45"
     ],
     "enc:\\\\x1027\\\\x838D\\\\x301E": [
       "Agent 58",
@@ -251,7 +261,11 @@
       "Agent 29",
       "Agent 32",
       "Agent 27",
-      "Agent 41"
+      "Agent 41",
+      "Agent 37",
+      "Agent 42",
+      "Agent 35",
+      "Agent 44"
     ],
     "enc:\\\\x1029\\\\xA86D\\\\x8515\\\\x05F4": [
       "Charr Blade Warrior",
@@ -273,7 +287,9 @@
       "Agent 32",
       "Agent 44",
       "Agent 38",
-      "Agent 33"
+      "Agent 33",
+      "Agent 35",
+      "Agent 39"
     ],
     "enc:\\\\x102D\\\\xB6F2\\\\xBA80\\\\x7C1B": [
       "Charr Stalker",
@@ -285,7 +301,9 @@
       "Agent 36",
       "Agent 25",
       "Agent 32",
-      "Agent 31"
+      "Agent 31",
+      "Agent 26",
+      "Agent 34"
     ],
     "enc:\\\\x102F\\\\xE176\\\\x9FFE\\\\x1977": [
       "Agent 178",
@@ -906,7 +924,9 @@
       "Spirit of Equinox"
     ],
     "enc:\\\\x4160\\\\x82A6\\\\x68E7": [
-      "Spirit of Conflagration"
+      "Spirit of Conflagration",
+      "Agent 73",
+      "Agent 65"
     ],
     "enc:\\\\x4161\\\\xA291\\\\xB856\\\\x0259": [
       "Spirit of Famine"
@@ -2280,7 +2300,13 @@
       "Regent of Ice"
     ],
     "enc:\\\\x8102\\\\x3B1D\\\\xE77D\\\\xC67B\\\\x5499": [
-      "Bandit Bruiser"
+      "Bandit Bruiser",
+      "Agent 39",
+      "Agent 37",
+      "Agent 42",
+      "Agent 38",
+      "Agent 47",
+      "Agent 48"
     ],
     "enc:\\\\x8102\\\\x3CED\\\\xAF8A\\\\x92C0\\\\x02A0": [
       "Agent 61",
@@ -2295,26 +2321,53 @@
       "Furious Ghost"
     ],
     "enc:\\\\x8102\\\\x3D0B\\\\xCFC8\\\\xB82B\\\\x5EE6": [
-      "Discordant Echo"
+      "Discordant Echo",
+      "Agent 28",
+      "Agent 47",
+      "Agent 45",
+      "Agent 66"
     ],
     "enc:\\\\x8102\\\\x3D10\\\\x9246\\\\xD62C\\\\x4C21": [
-      "Fractured Echo"
+      "Fractured Echo",
+      "Agent 28",
+      "Agent 26",
+      "Agent 66",
+      "Agent 47"
     ],
     "enc:\\\\x8102\\\\x3D15\\\\x6FEC": [
-      "Depleted Echo"
+      "Depleted Echo",
+      "Agent 29",
+      "Agent 30"
     ],
     "enc:\\\\x8102\\\\x3D1A\\\\xEA32\\\\xD207\\\\x109F": [
       "Agent 26",
-      "Wavering Echo"
+      "Wavering Echo",
+      "Agent 22",
+      "Agent 24",
+      "Agent 23"
     ],
     "enc:\\\\x8102\\\\x3D1F\\\\xFD1E\\\\x9EBB\\\\x14FC": [
-      "Blunted Echo"
+      "Blunted Echo",
+      "Agent 24",
+      "Agent 26",
+      "Agent 25"
     ],
     "enc:\\\\x8102\\\\x3D24\\\\xD0FA\\\\x89E8\\\\x3437": [
-      "Jagged Echo"
+      "Jagged Echo",
+      "Agent 24",
+      "Agent 27",
+      "Agent 23",
+      "Agent 28",
+      "Agent 26"
     ],
     "enc:\\\\x8102\\\\x3D29\\\\xBDF9\\\\xAA39\\\\x3D3A": [
-      "Withered Echo"
+      "Withered Echo",
+      "Agent 28",
+      "Agent 55",
+      "Agent 40",
+      "Agent 54",
+      "Agent 57",
+      "Agent 46"
     ],
     "enc:\\\\x8102\\\\x3D3F\\\\xB325\\\\xCD58\\\\x0244": [
       "Agent 99",
@@ -2344,22 +2397,41 @@
       "Crown[s] of Thorns"
     ],
     "enc:\\\\x8102\\\\x3D6D\\\\xFE0F\\\\xFC12\\\\x447B": [
-      "Singed Oak"
+      "Singed Oak",
+      "Agent 109"
     ],
     "enc:\\\\x8102\\\\x3D6E\\\\xEDAB\\\\xCACC\\\\x6D86": [
-      "Melandru's Stalker"
+      "Melandru's Stalker",
+      "Agent 112"
     ],
     "enc:\\\\x8102\\\\x3D6F\\\\xC2D6\\\\xF2AF\\\\x7BEB": [
-      "Bandit Firebug"
+      "Bandit Firebug",
+      "Agent 32",
+      "Agent 33",
+      "Agent 31",
+      "Agent 35"
     ],
     "enc:\\\\x8102\\\\x3D70\\\\xC77B\\\\xAA13\\\\x7B5D": [
-      "Bandit Bruiser"
+      "Bandit Bruiser",
+      "Agent 34",
+      "Agent 31",
+      "Agent 33",
+      "Agent 32",
+      "Agent 38"
     ],
     "enc:\\\\x8102\\\\x3D71\\\\xA470\\\\x2FE4": [
-      "Bandit Enforcer"
+      "Bandit Enforcer",
+      "Agent 37",
+      "Agent 35",
+      "Agent 36",
+      "Agent 29",
+      "Agent 33"
     ],
     "enc:\\\\x8102\\\\x3D72\\\\x89F8\\\\xD613\\\\x5CB9": [
-      "Bandit Captain"
+      "Bandit Captain",
+      "Agent 31",
+      "Agent 30",
+      "Agent 35"
     ],
     "enc:\\\\x8102\\\\x3D75\\\\x820C\\\\xEBCB\\\\x76F6": [
       "Blunted Spirit"
@@ -2371,19 +2443,26 @@
       "Fractured Spirit"
     ],
     "enc:\\\\x8102\\\\x3D7A\\\\xAF3C\\\\xE643\\\\x7973": [
-      "Grawl Longspear"
+      "Grawl Longspear",
+      "Agent 17"
     ],
     "enc:\\\\x8102\\\\x3D7B\\\\xD1CD\\\\x90E3\\\\x72D0": [
-      "Grawl Shaman"
+      "Grawl Shaman",
+      "Agent 11"
     ],
     "enc:\\\\x8102\\\\x3D7C\\\\xAD92\\\\xCE6E\\\\x0BD7": [
-      "Grawl Basher"
+      "Grawl Basher",
+      "Agent 12"
     ],
     "enc:\\\\x8102\\\\x3D7D\\\\x8767\\\\xE2C1\\\\x01A0": [
-      "Grawl Crone"
+      "Grawl Crone",
+      "Agent 16"
     ],
     "enc:\\\\x8102\\\\x3D7E\\\\x9063\\\\xEB4A\\\\x0771": [
-      "Storm Rider"
+      "Storm Rider",
+      "Agent 20",
+      "Agent 21",
+      "Agent 18"
     ],
     "enc:\\\\x8102\\\\x3D7F\\\\xE72B\\\\x867E\\\\x31E8": [
       "Agent 67",
@@ -2403,22 +2482,32 @@
       "Flash Gargoyle"
     ],
     "enc:\\\\x8102\\\\x3D84\\\\xC9B8\\\\x121F": [
-      "Boulder Elemental"
+      "Boulder Elemental",
+      "Agent 14"
     ],
     "enc:\\\\x8102\\\\x3D85\\\\xB306\\\\x2C14": [
-      "Stone Elemental"
+      "Stone Elemental",
+      "Agent 13"
     ],
     "enc:\\\\x8102\\\\x3D86\\\\xD23B\\\\x853C\\\\x020D": [
-      "Stone Fury"
+      "Stone Fury",
+      "Agent 18",
+      "Agent 20",
+      "Agent 21"
     ],
     "enc:\\\\x8102\\\\x3D87\\\\xE7F2\\\\xC6AF\\\\x2C74": [
-      "Cave Elemental"
+      "Cave Elemental",
+      "Agent 14"
     ],
     "enc:\\\\x8102\\\\x3D88\\\\xA035\\\\xD0C2\\\\x3C5D": [
-      "Hulking Cave Elemental"
+      "Hulking Cave Elemental",
+      "Agent 19",
+      "Agent 21",
+      "Agent 22"
     ],
     "enc:\\\\x8102\\\\x3DCE\\\\xBA96\\\\x1802": [
-      "Shard Elemental"
+      "Shard Elemental",
+      "Agent 15"
     ],
     "enc:\\\\x8102\\\\x3DCF\\\\xE0A9\\\\xE76A\\\\x3D0F": [
       "Hulking Shard Elemental"

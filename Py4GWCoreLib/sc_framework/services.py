@@ -125,6 +125,7 @@ class StuckWatchdog:
         sample_interval_ms: int = 500,
         progress_radius: float = 50.0,
         on_stuck: Callable[[], None] | None = None,
+        pause_while_fn: Callable[[], bool] | None = None,
     ) -> BehaviorTree:
         """
         Build a parallel position-monitor service.
@@ -136,6 +137,10 @@ class StuckWatchdog:
             on_stuck:           optional callback invoked once per stuck event.
                                 Suitable for casting an unstuck skill, sending
                                 a multibox unstuck message, etc.
+            pause_while_fn:     optional predicate; while it returns True the
+                                stuck timer is reset so stationary periods
+                                caused by casting / channelling do not trigger
+                                a false stuck event.
         """
         from Py4GWCoreLib.Player import Player
         from Py4GWCoreLib.py4gwcorelib_src.Utils import Utils
@@ -155,6 +160,15 @@ class StuckWatchdog:
                 return BehaviorTree.NodeState.RUNNING
 
             state["last_sample_ms"] = now
+
+            # While the caller's pause condition is active (e.g. mid-cast),
+            # keep resetting the progress timer so we never fire falsely.
+            if pause_while_fn is not None and pause_while_fn():
+                state["last_progress_ms"] = now
+                state["stuck_fired"] = False
+                node.blackboard["STUCK"] = False
+                return BehaviorTree.NodeState.RUNNING
+
             pos = Player.GetXY()
 
             # First sample — initialise baseline.

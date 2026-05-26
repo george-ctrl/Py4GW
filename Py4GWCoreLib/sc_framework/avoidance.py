@@ -44,8 +44,8 @@ def _now_ms() -> float:
 # ── Strategy ──────────────────────────────────────────────────────────────────
 
 class AvoidStrategy:
-    STRAFE     = "strafe"      # hold StrafeLeft/Right; let Player.Move keep steering
-    YAW_ADJUST = "yaw_adjust"  # rotate camera ± deflect_angle, hold MoveForward
+    STRAFE     = "strafe"      # face goal + hold MoveForward + StrafeLeft/Right (diagonal toward waypoint)
+    YAW_ADJUST = "yaw_adjust"  # Player.Move to deflected point, no keys held (full redirect)
 
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -126,10 +126,20 @@ class AvoidanceSentinel:
         self._last_sample:       ObstacleSample | None = None
         self._last_log:          dict[str, float] = {}
         self._last_yaw:          float | None = None
+        self._last_yaw_move_ms:  float = 0.0
         self._last_alive_ms:     float = 0.0
+        # After avoidance clears, held keys cancel GW's click-to-move.  We
+        # re-issue Player.Move every 100 ms for a 500 ms grace window so the
+        # character resumes moving even if the single on-clear call is dropped.
+        self._post_clear_reissue_until_ms: float = 0.0
+        self._last_reissue_ms:             float = 0.0
         # Set by wrap_path to allow skipping a waypoint whose position is
         # occupied by an enemy.  Returns the next waypoint or None if at end.
         self._next_goal_fn = None
+        # Set True by goal-skip logic; read by the per-step SkipAware wrapper
+        # in wrap_path to short-circuit BTMovement.Move for blocked waypoints.
+        # Reset to False by the arrive wrapper when the waypoint completes.
+        self.skip_current:  bool = False
 
     # ── factory helpers ───────────────────────────────────────────────────
 
@@ -203,7 +213,19 @@ class AvoidanceSentinel:
 
         wrapped: list[BehaviorTree] = []
         for i, (step, wp) in enumerate(zip(step_trees, waypoints)):
-            def _make_arrive_wrapper(idx: int, coords: tuple) -> BehaviorTree:
+            def _make_arrive_wrapper(idx: int, coords: tuple, inner_step: BehaviorTree) -> BehaviorTree:
+                # Wrap the step so sentinel.skip_current can short-circuit
+                # BTMovement.Move when an enemy is blocking the waypoint.
+                # Without this the step times out and recovery navigates back.
+                def _tick_skip(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
+                    if sentinel.skip_current:
+                        return BehaviorTree.NodeState.SUCCESS
+                    return inner_step.tick()
+
+                skip_aware = BehaviorTree(
+                    BehaviorTree.ActionNode(_tick_skip, name=f"{name}[{idx}]:SkipAware")
+                )
+
                 def _tick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
                     # Release held keys and reset avoidance state so the next
                     # waypoint starts cleanly (no strafe bleed between steps).
@@ -213,6 +235,8 @@ class AvoidanceSentinel:
                     sentinel._strafe_start_ms   = 0.0
                     sentinel._sticky_blocker_id = None
                     sentinel._last_yaw          = None
+                    sentinel._last_yaw_move_ms  = 0.0
+                    sentinel.skip_current       = False  # clear for next waypoint
                     wp_idx[0] = idx + 1
                     # Pre-issue movement to the next waypoint immediately so
                     # there is no gap while BTMovement.Move waits for its first
@@ -229,10 +253,10 @@ class AvoidanceSentinel:
                     return BehaviorTree.NodeState.SUCCESS
 
                 arrive_node = BehaviorTree(BehaviorTree.ActionNode(_tick, name=f"{name}[{idx}]:OnArrive"))
-                inner = BTComposite.Sequence(step, arrive_node, name=f"{name}[{idx}]:WithArrive")
+                inner = BTComposite.Sequence(skip_aware, arrive_node, name=f"{name}[{idx}]:WithArrive")
                 return cls._make_parallel(inner, sentinel, name=f"{name}[{idx}]")
 
-            wrapped.append(_make_arrive_wrapper(i, wp))
+            wrapped.append(_make_arrive_wrapper(i, wp, step))
 
         return BTComposite.Sequence(*wrapped, name=name)
 
@@ -260,12 +284,16 @@ class AvoidanceSentinel:
             else:
                 self._sticky_blocker_id = None  # left the corridor
 
-        # Publish state for draw_path_overlay() — always update, even when clear.
+        # Publish state for draw_path_overlay() and the Movement debug tab.
         try:
             from Py4GWCoreLib.sc_framework.movement import _overlay as _mov_ovl
-            _mov_ovl["avoid_cfg"]    = self._cfg
-            _mov_ovl["avoid_sample"] = sample
-            _mov_ovl["avoid_goal"]   = goal
+            _mov_ovl["avoid_cfg"]         = self._cfg
+            _mov_ovl["avoid_sample"]      = sample
+            _mov_ovl["avoid_goal"]        = goal
+            _mov_ovl["avoiding"]          = self._avoiding
+            _mov_ovl["strategy"]          = self._current_strategy
+            _mov_ovl["strafe_start_ms"]   = self._strafe_start_ms
+            _mov_ovl["sticky_blocker_id"] = self._sticky_blocker_id
         except Exception:
             pass
 
@@ -284,6 +312,20 @@ class AvoidanceSentinel:
                 self._strafe_start_ms   = 0.0
                 self._sticky_blocker_id = None
                 self._last_yaw          = None
+                self._last_yaw_move_ms  = 0.0
+                # Start the grace window — re-issue every 100 ms for 500 ms so
+                # the character resumes even if the one-shot call above is dropped.
+                self._post_clear_reissue_until_ms = now_ms + 500.0
+                self._last_reissue_ms             = now_ms
+            elif now_ms < self._post_clear_reissue_until_ms:
+                # Grace-period re-issue: corridor has been clear for <500 ms.
+                # Keep nudging click-to-move so BTMovement's stall timer never fires.
+                if now_ms - self._last_reissue_ms >= 100.0:
+                    try:
+                        Player.Move(*self._goal_fn())
+                    except Exception:
+                        pass
+                    self._last_reissue_ms = now_ms
         else:
             self._last_sample = sample
             if not self._avoiding:
@@ -313,7 +355,7 @@ class AvoidanceSentinel:
 
             # ── apply strategy ────────────────────────────────────────────
             if self._current_strategy == AvoidStrategy.STRAFE:
-                self._apply_strafe(sample)
+                self._apply_strafe(sample, (px, py), goal)
             else:
                 self._apply_yaw_adjust(sample, (px, py), goal)
 
@@ -341,6 +383,9 @@ class AvoidanceSentinel:
                             Player.Move(*next_goal)
                         except Exception:
                             pass
+                        # Mark the current BT step as done so it doesn't
+                        # timeout and try to navigate BACK to the blocked spot.
+                        self.skip_current = True
                         self._log_event(
                             "goal_skip",
                             f"Goal blocked — agent {sample.agent_id}"
@@ -448,17 +493,30 @@ class AvoidanceSentinel:
 
     # ── strategies ────────────────────────────────────────────────────────
 
-    def _apply_strafe(self, obs: ObstacleSample) -> None:
+    def _apply_strafe(
+        self,
+        obs:        ObstacleSample,
+        player_pos: tuple[float, float],
+        goal:       tuple[float, float],
+    ) -> None:
         """
-        Slide laterally away from the obstacle.
+        Move diagonally toward the goal while sliding away from the obstacle.
+
+        Camera is rotated to face the goal each tick (required every frame or
+        the engine resets it).  MoveForward drives the character toward the
+        waypoint; the strafe key deflects laterally away from the obstacle.
 
         Obstacle LEFT  (cross > 0) → strafe RIGHT
         Obstacle RIGHT (cross < 0) → strafe LEFT
-
-        Player.Move (pathfinding) continues running; the strafe key adds lateral
-        displacement.  In GW, strafe keys do NOT cancel click-to-move in most cases.
         """
+        from Py4GWCoreLib.Camera import Camera
         from Py4GWCoreLib.enums_src.UI_enums import ControlAction
+
+        gdx = goal[0] - player_pos[0]
+        gdy = goal[1] - player_pos[1]
+        Camera.SetYaw(math.atan2(gdy, gdx))
+
+        self._hold_key(ControlAction.ControlAction_MoveForward.value)
         if obs.is_left:
             self._hold_key(ControlAction.ControlAction_StrafeRight.value)
             self._release_key(ControlAction.ControlAction_StrafeLeft.value)
@@ -506,10 +564,13 @@ class AvoidanceSentinel:
             )
             self._last_yaw = new_yaw
 
-        try:
-            Player.Move(target_x, target_y)
-        except Exception:
-            pass
+        now = _now_ms()
+        if now - self._last_yaw_move_ms >= 300.0:
+            try:
+                Player.Move(target_x, target_y)
+            except Exception:
+                pass
+            self._last_yaw_move_ms = now
 
     # ── key management ────────────────────────────────────────────────────
 

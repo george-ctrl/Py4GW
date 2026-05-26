@@ -168,10 +168,18 @@ class Waypoints:
 class HoSSkip:
     WEST_THRESHOLD  = 50.0     # agent.x must be < player.x - this to count as "west"
     CAST_RANGE      = 900.0    # only consider targets within this distance
-    SUCCESS_Y       = -6200.0  # player.y > this after cast = skip succeeded
     FIND_TIMEOUT_MS = 8_000    # max ms to wait for a valid target before retrying
     VERIFY_MS       = 2_000    # max ms after cast to detect success before retrying
     MAX_RETRIES     = 5
+    # Polygon that defines the landing area after a successful HoS wall-skip.
+    # Player must be inside this region for the skip to be considered successful.
+    SUCCESS_POLYGON: tuple[tuple[float, float], ...] = (
+        (-8928.00, -6687.76),
+        (-9161.41, -6369.89),
+        (-9312.00, -6009.32),
+        (-8663.12, -5792.92),
+        (-8516.22, -6617.67),
+    )
 
 
 # ── Gate Clip ─────────────────────────────────────────────────────────────────

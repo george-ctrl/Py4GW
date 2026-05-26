@@ -1013,6 +1013,12 @@
           "name": "Flare",
           "profession": "Elementalist",
           "profession_id": 6
+        },
+        "195": {
+          "id": 195,
+          "name": "Lava Font",
+          "profession": "Elementalist",
+          "profession_id": 6
         }
       }
     },
@@ -22410,7 +22416,7 @@
       "encoded_names": [
         "\\\\x8102\\\\x3D7D\\\\x8767\\\\xE2C1\\\\x01A0"
       ],
-      "inferred_primary": "",
+      "inferred_primary": "Necromancer",
       "inferred_secondary": "",
       "model_ids": [
         8144
@@ -22435,7 +22441,20 @@
           "name": "Unknown Map ID"
         }
       },
-      "observed_skills": {}
+      "observed_skills": {
+        "132": {
+          "id": 132,
+          "name": "Plague Signet",
+          "profession": "Necromancer",
+          "profession_id": 4
+        },
+        "144": {
+          "id": 144,
+          "name": "Chilblains",
+          "profession": "Necromancer",
+          "profession_id": 4
+        }
+      }
     },
     "enc:\\\\x8102\\\\x3D7E\\\\x9063\\\\xEB4A\\\\x0771": {
       "encoded_names": [

@@ -282,73 +282,224 @@ def main():
         _bot_tree.tick()
 
 
+def _draw_movement_tab() -> None:
+    """Content of the Movement debug tab."""
+    import math as _m
+    import time as _t
+    from Py4GWCoreLib.sc_framework.movement import _overlay
+
+    path   = _overlay["path"]
+    wp_idx = _overlay["wp_idx"]
+    tol    = _overlay["tolerance"]
+
+    # ── path state ────────────────────────────────────────────────────────────
+    PyImGui.text("Path")
+    PyImGui.separator()
+    if not path:
+        PyImGui.text("  No active path")
+    else:
+        n_wps = len(path)
+        PyImGui.text(f"  Waypoints: {min(wp_idx, n_wps)} / {n_wps}  (tol={tol:.0f})")
+        if 0 <= wp_idx < n_wps:
+            wx, wy = path[wp_idx]
+            PyImGui.text(f"  Next WP:  ({wx:.0f}, {wy:.0f})")
+            try:
+                px, py = Player.GetXY()
+                dist = _m.hypot(wx - px, wy - py)
+                PyImGui.text(f"  Player:   ({px:.0f}, {py:.0f})")
+                PyImGui.text(f"  Dist:     {dist:.0f} units")
+            except Exception:
+                pass
+        else:
+            PyImGui.text("  All waypoints complete")
+
+    PyImGui.spacing()
+
+    # ── avoidance state ───────────────────────────────────────────────────────
+    PyImGui.text("Avoidance")
+    PyImGui.separator()
+
+    avoiding   = _overlay.get("avoiding", False)
+    strategy   = _overlay.get("strategy", "strafe")
+    start_ms   = _overlay.get("strafe_start_ms", 0.0)
+    blocker_id = _overlay.get("sticky_blocker_id")
+    sample     = _overlay.get("avoid_sample")
+    goal       = _overlay.get("avoid_goal")
+    cfg        = _overlay.get("avoid_cfg")
+
+    if avoiding:
+        PyImGui.text_colored("  State:    AVOIDING", (1.0, 0.8, 0.1, 1.0))
+        PyImGui.text(f"  Strategy: {strategy}")
+        if cfg is not None:
+            elapsed = _t.monotonic() * 1_000.0 - start_ms
+            PyImGui.text(f"  Strafe:   {elapsed:.0f} / {cfg.escalation_ms:.0f} ms")
+        if blocker_id is not None:
+            PyImGui.text(f"  Blocker:  agent {blocker_id}")
+        if sample is not None:
+            side = "LEFT" if sample.is_left else "RIGHT"
+            PyImGui.text(
+                f"  Obs:      dist={sample.distance:.0f}"
+                f"  dot={sample.dot:.0f}  cross={sample.cross:.0f}  {side}"
+            )
+    else:
+        PyImGui.text_colored("  State:    CLEAR", (0.3, 1.0, 0.3, 1.0))
+
+    if goal is not None:
+        PyImGui.text(f"  Goal:     ({goal[0]:.0f}, {goal[1]:.0f})")
+
+    PyImGui.spacing()
+
+    # ── avoidance config ──────────────────────────────────────────────────────
+    if cfg is not None:
+        PyImGui.text("Config")
+        PyImGui.separator()
+        PyImGui.text(f"  Check radius:    {cfg.check_radius:.0f}")
+        PyImGui.text(f"  Path half-width: {cfg.path_half_width:.0f}")
+        PyImGui.text(f"  Agent radius:    {cfg.agent_radius:.0f}")
+        PyImGui.text(f"  Escalation:      {cfg.escalation_ms:.0f} ms")
+        PyImGui.text(f"  Deflect angle:   {cfg.deflect_angle_deg:.0f}°")
+        PyImGui.text(f"  Strafe release:  {cfg.strafe_release_margin:.0f}")
+        PyImGui.spacing()
+
+    # ── log button ────────────────────────────────────────────────────────────
+    if PyImGui.button("Log Movement State"):
+        _log_movement_state(_overlay)
+
+
+def _log_movement_state(overlay: dict) -> None:
+    """Write a full snapshot of movement + avoidance state to the console log."""
+    import math as _m
+    import time as _t
+
+    path   = overlay["path"]
+    wp_idx = overlay["wp_idx"]
+    tol    = overlay["tolerance"]
+    ConsoleLog(MODULE_NAME, "=== Movement State Snapshot ===", Console.MessageType.Info, log=True)
+    ConsoleLog(MODULE_NAME, f"Path: {len(path)} wps  idx={wp_idx}  tol={tol:.0f}", Console.MessageType.Info, log=True)
+    if 0 <= wp_idx < len(path):
+        wx, wy = path[wp_idx]
+        ConsoleLog(MODULE_NAME, f"Next WP: ({wx:.0f}, {wy:.0f})", Console.MessageType.Info, log=True)
+        try:
+            px, py = Player.GetXY()
+            dist = _m.hypot(wx - px, wy - py)
+            ConsoleLog(MODULE_NAME, f"Player: ({px:.0f}, {py:.0f})  dist={dist:.0f}", Console.MessageType.Info, log=True)
+        except Exception:
+            pass
+
+    avoiding   = overlay.get("avoiding", False)
+    strategy   = overlay.get("strategy", "strafe")
+    start_ms   = overlay.get("strafe_start_ms", 0.0)
+    sample     = overlay.get("avoid_sample")
+    goal       = overlay.get("avoid_goal")
+    cfg        = overlay.get("avoid_cfg")
+
+    state_str = "AVOIDING" if avoiding else "CLEAR"
+    ConsoleLog(MODULE_NAME, f"Avoidance: {state_str}", Console.MessageType.Info, log=True)
+    if avoiding:
+        elapsed = _t.monotonic() * 1_000.0 - start_ms
+        ConsoleLog(MODULE_NAME, f"Strategy: {strategy}  strafe_elapsed={elapsed:.0f}ms", Console.MessageType.Info, log=True)
+        if sample is not None:
+            side = "LEFT" if sample.is_left else "RIGHT"
+            ConsoleLog(
+                MODULE_NAME,
+                f"Blocker: agent={sample.agent_id}  dist={sample.distance:.0f}"
+                f"  dot={sample.dot:.0f}  cross={sample.cross:.0f}  {side}",
+                Console.MessageType.Info, log=True,
+            )
+    if goal is not None:
+        ConsoleLog(MODULE_NAME, f"Goal: ({goal[0]:.0f}, {goal[1]:.0f})", Console.MessageType.Info, log=True)
+    if cfg is not None:
+        ConsoleLog(
+            MODULE_NAME,
+            f"Config: check_r={cfg.check_radius:.0f}  half_w={cfg.path_half_width:.0f}"
+            f"  agent_r={cfg.agent_radius:.0f}  esc_ms={cfg.escalation_ms:.0f}"
+            f"  deflect={cfg.deflect_angle_deg:.0f}°  strafe_rel={cfg.strafe_release_margin:.0f}",
+            Console.MessageType.Info, log=True,
+        )
+    ConsoleLog(MODULE_NAME, "=== End Snapshot ===", Console.MessageType.Info, log=True)
+
+
 def draw():
-    """Control panel: Start/Stop/Pause, status, consumable toggles."""
+    """Control panel: Start/Stop/Pause, status, consumable toggles, movement debug."""
     global _setup_err, _initialized
 
     if not PyImGui.begin(BOT_NAME, True):
         PyImGui.end()
         return
 
-    # ── header / controls ─────────────────────────────────────────────────────
-    if _setup_err:
-        PyImGui.text_colored(_setup_err, (1.0, 0.3, 0.3, 1.0))
-        if PyImGui.button("Retry Detection"):
-            _setup_err   = ""
-            _initialized = False
+    if PyImGui.begin_tab_bar("TotFTabs"):
 
-    elif _role is None:
-        PyImGui.text("Waiting for player to load…")
+        # ── Main tab ──────────────────────────────────────────────────────────
+        if PyImGui.begin_tab_item("Main"):
 
-    else:
-        PyImGui.text(f"Role:  {_role.role_id}")
+            # header / controls
+            if _setup_err:
+                PyImGui.text_colored(_setup_err, (1.0, 0.3, 0.3, 1.0))
+                if PyImGui.button("Retry Detection"):
+                    _setup_err   = ""
+                    _initialized = False
 
-        if _bot_tree is None:
-            if PyImGui.button("Start"):
-                _start_bot()
-        else:
-            step  = _bot_tree.GetBlackboardValue("current_step_name") or "—"
-            stuck = _bot_tree.tree.blackboard.get("STUCK", False)
-            PyImGui.text(f"Step:  {step}")
-            if stuck:
-                PyImGui.text_colored("STUCK", (1.0, 0.8, 0.0, 1.0))
+            elif _role is None:
+                PyImGui.text("Waiting for player to load…")
 
-            if _bot_tree.IsPaused():
-                if PyImGui.button("Resume"):
-                    _bot_tree.Pause(False)
             else:
-                if PyImGui.button("Pause"):
-                    _bot_tree.Pause(True)
+                PyImGui.text(f"Role:  {_role.role_id}")
 
+                if _bot_tree is None:
+                    if PyImGui.button("Start"):
+                        _start_bot()
+                else:
+                    step  = _bot_tree.GetBlackboardValue("current_step_name") or "—"
+                    stuck = _bot_tree.tree.blackboard.get("STUCK", False)
+                    PyImGui.text(f"Step:  {step}")
+                    if stuck:
+                        PyImGui.text_colored("STUCK", (1.0, 0.8, 0.0, 1.0))
+
+                    if _bot_tree.IsPaused():
+                        if PyImGui.button("Resume"):
+                            _bot_tree.Pause(False)
+                    else:
+                        if PyImGui.button("Pause"):
+                            _bot_tree.Pause(True)
+
+                    PyImGui.same_line(0, -1)
+                    if PyImGui.button("Stop"):
+                        _stop_bot()
+
+            # outpost panel (role-specific)
+            _outpost_ui = getattr(_role, "outpost", None)
+            if _bot_tree is not None and _outpost_ui is not None:
+                _outpost_ui.draw_section()
+
+            # debug toggles
+            PyImGui.separator()
+            _verbose_log["enabled"]    = PyImGui.checkbox("Verbose Logging",  _verbose_log["enabled"])
+            _movement_debug["enabled"] = PyImGui.checkbox("Movement Debug",   _movement_debug["enabled"])
+
+            # consumables
+            PyImGui.separator()
+            PyImGui.text("Consumables")
             PyImGui.same_line(0, -1)
-            if PyImGui.button("Stop"):
-                _stop_bot()
+            all_on = all(_cons_enabled.get(spec.key, True) for spec in ALL_CONSUMABLES)
+            if PyImGui.button("Deselect All" if all_on else "Select All"):
+                for spec in ALL_CONSUMABLES:
+                    _cons_enabled[spec.key] = not all_on
+            PyImGui.columns(2, "cons_cols", False)
+            for spec in ALL_CONSUMABLES:
+                current = _cons_enabled.get(spec.key, True)
+                updated = PyImGui.checkbox(spec.label, current)
+                _cons_enabled[spec.key] = updated
+                PyImGui.next_column()
+            PyImGui.columns(1, "cons_end", False)
 
-    # ── outpost panel (role-specific) ─────────────────────────────────────────
-    _outpost_ui = getattr(_role, "outpost", None)
-    if _bot_tree is not None and _outpost_ui is not None:
-        _outpost_ui.draw_section()
+            PyImGui.end_tab_item()
 
-    # ── debug toggles ─────────────────────────────────────────────────────────
-    PyImGui.separator()
-    _verbose_log["enabled"]    = PyImGui.checkbox("Verbose Logging",  _verbose_log["enabled"])
-    _movement_debug["enabled"] = PyImGui.checkbox("Movement Debug",   _movement_debug["enabled"])
+        # ── Movement tab ──────────────────────────────────────────────────────
+        if PyImGui.begin_tab_item("Movement"):
+            _draw_movement_tab()
+            PyImGui.end_tab_item()
 
-    # ── consumables ───────────────────────────────────────────────────────────
-    PyImGui.separator()
-    PyImGui.text("Consumables")
-    PyImGui.same_line(0, -1)
-    all_on = all(_cons_enabled.get(spec.key, True) for spec in ALL_CONSUMABLES)
-    if PyImGui.button("Deselect All" if all_on else "Select All"):
-        for spec in ALL_CONSUMABLES:
-            _cons_enabled[spec.key] = not all_on
-    PyImGui.columns(2, "cons_cols", False)
-    for spec in ALL_CONSUMABLES:
-        current = _cons_enabled.get(spec.key, True)
-        updated = PyImGui.checkbox(spec.label, current)
-        _cons_enabled[spec.key] = updated
-        PyImGui.next_column()
-    PyImGui.columns(1, "cons_end", False)
+        PyImGui.end_tab_bar()
 
     PyImGui.end()
 

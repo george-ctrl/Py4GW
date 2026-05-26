@@ -49,13 +49,18 @@ class RecoveryStrategy(enum.Enum):
 # ── debug overlay state ───────────────────────────────────────────────────────
 # Updated at runtime when RunPath executes; read each frame by draw_path_overlay().
 _overlay: dict = {
-    "path":         [],    # list of (x, y) for the active path
-    "wp_idx":       0,     # index of the waypoint currently being targeted (0 = first)
-    "tolerance":    80.0,  # arrival radius in GW units, shown as circles on waypoints
+    "path":              [],    # list of (x, y) for the active path
+    "wp_idx":            0,     # index of the waypoint currently being targeted (0 = first)
+    "tolerance":         80.0,  # arrival radius in GW units, shown as circles on waypoints
     # Avoidance state — populated by AvoidanceSentinel._tick_avoidance() each frame:
-    "avoid_cfg":    None,  # AvoidanceConfig | None
-    "avoid_sample": None,  # ObstacleSample | None — closest in-path agent this tick
-    "avoid_goal":   None,  # (x, y) | None — current sentinel target
+    "avoid_cfg":         None,  # AvoidanceConfig | None
+    "avoid_sample":      None,  # ObstacleSample | None — closest in-path agent this tick
+    "avoid_goal":        None,  # (x, y) | None — current sentinel target
+    # Sentinel internal state — also written each tick for the Movement debug tab:
+    "avoiding":          False,
+    "strategy":          "strafe",
+    "strafe_start_ms":   0.0,
+    "sticky_blocker_id": None,
 }
 
 
@@ -298,28 +303,59 @@ class SCMovement:
 
         # ── safety guard ─────────────────────────────────────────────────
         if pre_move_check_fn is not None:
-            _gls: dict = {"last_ms": 0.0}
+            _gls: dict = {"last_log_ms": 0.0, "last_move_ms": 0.0}
             def _guard(_node: BehaviorTree.Node, _s=_gls) -> BehaviorTree.NodeState:
                 if pre_move_check_fn():
                     return BehaviorTree.NodeState.SUCCESS
-                if log_fn is not None:
-                    now = _time.monotonic() * 1_000.0
-                    if now - _s["last_ms"] >= 2_000.0:
-                        log_fn(f"{name}: guard waiting…")
-                        _s["last_ms"] = now
+                now = _time.monotonic() * 1_000.0
+                if log_fn is not None and now - _s["last_log_ms"] >= 2_000.0:
+                    log_fn(f"{name}: guard waiting…")
+                    _s["last_log_ms"] = now
+                # Re-issue Player.Move every 500 ms so the character keeps
+                # walking toward the destination while the guard waits
+                # (e.g. for SF to activate after a recast).  Without this the
+                # pre-issued arrive-wrapper move expires and the character
+                # stands still at the waypoint until the guard passes.
+                if now - _s["last_move_ms"] >= 500.0:
+                    from Py4GWCoreLib.Player import Player as _P
+                    try:
+                        _P.Move(_tx, _ty)
+                    except Exception:
+                        pass
+                    _s["last_move_ms"] = now
                 return BehaviorTree.NodeState.RUNNING
             steps.append(BehaviorTree.ActionNode(_guard, name=f"{name}:Guard"))
+
+        # ── pre-move kick ─────────────────────────────────────────────────
+        # Issue one immediate Player.Move so the character starts walking
+        # before BTMovement's async path resolver initialises.  Without
+        # this there is a 1-3 tick standstill at every waypoint transition
+        # (guard passes → BTMovement first tick does no movement).
+        def _kick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
+            from Py4GWCoreLib.Player import Player as _P
+            try:
+                _P.Move(_tx, _ty)
+            except Exception:
+                pass
+            return BehaviorTree.NodeState.SUCCESS
+
+        steps.append(BehaviorTree.ActionNode(_kick, name=f"{name}:Kick"))
 
         # ── core move ────────────────────────────────────────────────────
         if log_fn is not None:
             log_fn(f"{name}: → ({_tx:.0f}, {_ty:.0f})")
 
+        # path_points_override bypasses AutoPathing's async resolver (which
+        # takes 3-4 s per waypoint) so BTMovement issues Player.Move on its
+        # very first tick.  SC waypoints are hand-crafted; GW's own client
+        # pathfinder handles the direct hop between them.
         move_tree = BTMovement.Move(
             x=_tx,
             y=_ty,
             tolerance=tolerance,
             timeout_ms=timeout_ms,
             stall_threshold_ms=stall_threshold_ms,
+            path_points_override=[(_tx, _ty)],
         )
 
         if recovery == RecoveryStrategy.NONE:
@@ -416,12 +452,16 @@ class SCMovement:
         # and sets up the 3D overlay state.  The arrive wrapper updates the
         # active waypoint index and logs each arrival.
         def _path_start(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
-            _overlay["path"]         = _path_snap
-            _overlay["wp_idx"]       = 0
-            _overlay["tolerance"]    = _tol_snap
-            _overlay["avoid_cfg"]    = None   # cleared until sentinel sets it
-            _overlay["avoid_sample"] = None
-            _overlay["avoid_goal"]   = None
+            _overlay["path"]              = _path_snap
+            _overlay["wp_idx"]            = 0
+            _overlay["tolerance"]         = _tol_snap
+            _overlay["avoid_cfg"]         = None   # cleared until sentinel sets it
+            _overlay["avoid_sample"]      = None
+            _overlay["avoid_goal"]        = None
+            _overlay["avoiding"]          = False
+            _overlay["strategy"]          = "strafe"
+            _overlay["strafe_start_ms"]   = 0.0
+            _overlay["sticky_blocker_id"] = None
             if log_fn is not None:
                 log_fn(f"{name}: {_n_wps} waypoints")
             return BehaviorTree.NodeState.SUCCESS

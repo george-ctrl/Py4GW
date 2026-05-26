@@ -11,6 +11,7 @@ EbonEscape follow via PartyFollowService.
 
 from __future__ import annotations
 
+from Py4GWCoreLib.Agent import Agent
 from Py4GWCoreLib.GlobalCache import GLOBAL_CACHE
 from Py4GWCoreLib.Player import Player
 from Py4GWCoreLib.py4gwcorelib_src.BehaviorTree import BehaviorTree
@@ -225,4 +226,5 @@ def make_stuck_watchdog(recovery_cast_fn=None) -> BehaviorTree:
     return StuckWatchdog.build_service(
         stuck_threshold_ms=STUCK_THRESHOLD_MS,
         on_stuck=_on_stuck,
+        pause_while_fn=lambda: Agent.IsCasting(Player.GetAgentID()),
     )
