@@ -16,6 +16,7 @@ from Py4GWCoreLib.GlobalCache import GLOBAL_CACHE
 from Py4GWCoreLib.Player import Player
 from Py4GWCoreLib.py4gwcorelib_src.BehaviorTree import BehaviorTree
 from Py4GWCoreLib.py4gwcorelib_src.Console import ConsoleLog, Console
+from Py4GWCoreLib.routines_src.behaviourtrees_src.composite import BTComposite
 
 from Py4GWCoreLib.sc_framework.services import UpkeepService, StuckWatchdog, PeriodicService
 
@@ -162,6 +163,33 @@ def make_dwarven_stability_upkeep() -> BehaviorTree:
 
 # ── Stuck watchdog ────────────────────────────────────────────────────────────
 
+_watchdog_paused: dict = {"active": False}
+
+
+def set_watchdog_paused(active: bool) -> None:
+    """Pause or resume the stuck watchdog during intentional stationary phases."""
+    _watchdog_paused["active"] = active
+
+
+def suppress_watchdog_for(inner: "BehaviorTree | BehaviorTree.ActionNode", name: str = "") -> BehaviorTree:
+    """
+    Wrap a BT node so the stuck watchdog is suppressed for its entire duration.
+
+    Uses a Sequence of three nodes: set-pause → inner → clear-pause.
+    If inner fails the clear-pause node is skipped, but since a failure
+    propagates out of the planner the bot restarts anyway.
+    """
+    pause_bt = BehaviorTree(BehaviorTree.ActionNode(
+        lambda _: (set_watchdog_paused(True), BehaviorTree.NodeState.SUCCESS)[1],
+        name=f"{name}:PauseWD",
+    ))
+    resume_bt = BehaviorTree(BehaviorTree.ActionNode(
+        lambda _: (set_watchdog_paused(False), BehaviorTree.NodeState.SUCCESS)[1],
+        name=f"{name}:ResumeWD",
+    ))
+    return BTComposite.Sequence(pause_bt, inner, resume_bt, name=name)
+
+
 # ── Consumable upkeep ─────────────────────────────────────────────────────────
 # _cons_enabled is read by draw_ui() in __init__.py; toggling a key at runtime
 # takes effect on the next upkeep tick (no restart needed).
@@ -217,6 +245,11 @@ def make_stuck_watchdog(recovery_cast_fn=None) -> BehaviorTree:
     Monitors position delta.  If the player has not moved for STUCK_THRESHOLD_MS,
     calls recovery_cast_fn (e.g. Death's Charge to the nearest ally).
     Pass None to skip the active recovery and only set the STUCK flag.
+
+    The watchdog is silenced while:
+      - the player is mid-cast (IsCasting), or
+      - set_watchdog_paused(True) is in effect (intentional wait phases such as
+        gate clip, barrier waits, coordinator signal waits).
     """
     def _on_stuck():
         log("StuckWatchdog: stuck detected — triggering recovery")
@@ -226,5 +259,7 @@ def make_stuck_watchdog(recovery_cast_fn=None) -> BehaviorTree:
     return StuckWatchdog.build_service(
         stuck_threshold_ms=STUCK_THRESHOLD_MS,
         on_stuck=_on_stuck,
-        pause_while_fn=lambda: Agent.IsCasting(Player.GetAgentID()),
+        pause_while_fn=lambda: (
+            Agent.IsCasting(Player.GetAgentID()) or _watchdog_paused["active"]
+        ),
     )

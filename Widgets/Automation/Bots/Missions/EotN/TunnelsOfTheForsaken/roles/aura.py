@@ -21,7 +21,6 @@ Detection signature:  Grenth's Aura (GrentsAura) AND Ebon Escape on the bar.
 from __future__ import annotations
 
 from Py4GWCoreLib.GlobalCache import GLOBAL_CACHE
-from Py4GWCoreLib.Player import Player
 from Py4GWCoreLib.py4gwcorelib_src.BehaviorTree import BehaviorTree
 from Py4GWCoreLib.routines_src.behaviourtrees_src.composite import BTComposite
 
@@ -38,7 +37,7 @@ from ..constants import (
     Waypoints, PARTY_SIZE, EE_TRIGGER_DISTANCE, EE_COOLDOWN_MS,
 )
 from ..agents import find_althea, find_enraged_phantom, find_varny, find_dasher
-from ._shared import make_sf_upkeep, make_sod_upkeep, make_iau_upkeep, make_stuck_watchdog, make_consumable_service, log, movement_log
+from ._shared import make_sf_upkeep, make_sod_upkeep, make_iau_upkeep, make_stuck_watchdog, make_consumable_service, suppress_watchdog_for, log, movement_log
 
 
 # ── Role class ────────────────────────────────────────────────────────────────
@@ -116,32 +115,36 @@ def _slot_for_aura(skill_id: int) -> int:
     return 0
 
 
-def _sf_active() -> bool:
-    """Pre-move safety check: Shadow Form must be active before running."""
-    return GLOBAL_CACHE.Effects.HasEffect(Player.GetAgentID(), SkillID.ShadowForm)
-
-
 # ── phase builders ────────────────────────────────────────────────────────────
 
 def _build_getting_there() -> BehaviorTree:
     """
-    Run from Piken Square to the dungeon entrance.
+    Run from Verdant Cascades to the dungeon entrance.
 
-    Identical to the Dasher's Getting There phase — all roles enter together.
+    The outpost exit is handled by AuraRole's OutpostHandler before this
+    runs.  Wait for VC to finish loading before issuing any movement — the
+    same race condition as the Dasher applies here.
     """
     from Py4GWCoreLib.Map import Map
-
-    def _safe_to_move() -> bool:
-        return Map.IsOutpost() or _sf_active()
+    from ..constants import MapID
 
     return BTComposite.Sequence(
+        SCActions.WaitForCondition(
+            lambda: Map.IsExplorable() and Map.GetMapID() == MapID.VERDANT_CASCADES,
+            timeout_ms=30_000,
+            name="Aura:WaitVerdantLoad",
+        ),
         SCMovement.RunPath(
-            Waypoints.PIKEN_TO_DUNGEON,
-            pre_move_check_fn=_safe_to_move,
+            Waypoints.VERDANT_TO_DUNGEON,
             recovery=RecoveryStrategy.STRAFE,
             avoidance=AvoidanceConfig(),
             log_fn=movement_log,
             name="Aura:GettingThere",
+        ),
+        SCActions.WaitForCondition(
+            lambda: Map.IsExplorable() and Map.GetMapID() == MapID.TUNNELS_LEVEL1,
+            timeout_ms=30_000,
+            name="Aura:WaitDungeonLoad",
         ),
         name="GettingThere",
     )
@@ -158,7 +161,7 @@ def _build_level1(coord: SCCoordinator) -> BehaviorTree:
     """
     return BTComposite.Sequence(
         # Move to Althea and take the quest.
-        SCMovement.Move(*Waypoints.ALTHEA_POS, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Aura:MoveToAlthea"),
+        SCMovement.Move(*Waypoints.ALTHEA_POS, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Aura:MoveToAlthea"),
         SCActions.TakeQuest(
             quest_id=QuestID.ALTHEA_QUEST,
             npc_agent_id_fn=find_althea,
@@ -167,7 +170,10 @@ def _build_level1(coord: SCCoordinator) -> BehaviorTree:
         # Signal to the Dasher that this Aura has the quest.
         coord.signal_node(Signals.QUEST_GRABBED, name="SignalQuestGrabbed", log_fn=log),
         # Wait for Dasher to complete the gate glitch.
-        coord.wait_for_n_node(Signals.GATE_DONE, n=1, name="WaitGateDone", log_fn=log),
+        suppress_watchdog_for(
+            coord.wait_for_n_node(Signals.GATE_DONE, n=1, name="WaitGateDone", log_fn=log),
+            name="WaitGateDone",
+        ),
         name="Level1",
     )
 
@@ -183,7 +189,6 @@ def _build_level2(coord: SCCoordinator) -> BehaviorTree:
     return BTComposite.Sequence(
         SCMovement.RunPath(
             Waypoints.LEVEL2_ROUTE,
-            pre_move_check_fn=_sf_active,
             avoidance=AvoidanceConfig(),
             log_fn=movement_log,
             name="Aura:Level2Run",
@@ -205,16 +210,28 @@ def _build_level3(coord: SCCoordinator) -> BehaviorTree:
     """
     return BTComposite.Sequence(
         # ── Enraged Phantom ──────────────────────────────────────────────
-        SCMovement.Move(*Waypoints.PHANTOM_POS, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Aura:MoveToPhantom"),
+        SCMovement.Move(*Waypoints.PHANTOM_POS, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Aura:MoveToPhantom"),
         _dps_loop(coord, Barriers.PHANTOM_DEAD, find_enraged_phantom, "PhantomDPS"),
-        coord.barrier_node(Barriers.PHANTOM_DEAD, required=PARTY_SIZE, name="PhantomDeadBarrier", log_fn=log),
+        suppress_watchdog_for(
+            coord.barrier_node(Barriers.PHANTOM_DEAD, required=PARTY_SIZE, name="PhantomDeadBarrier", log_fn=log),
+            name="PhantomDeadBarrier",
+        ),
 
         # ── Boss ─────────────────────────────────────────────────────────
-        coord.wait_for_n_node(Signals.BOSS_TRIGGERED, n=1, name="WaitBossTriggered", log_fn=log),
-        SCMovement.Move(*Waypoints.BOSS_ROOM_POS, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Aura:MoveToBossRoom"),
-        coord.barrier_node(Barriers.ALL_AT_BOSS, required=PARTY_SIZE, name="AllAtBossBarrier", log_fn=log),
+        suppress_watchdog_for(
+            coord.wait_for_n_node(Signals.BOSS_TRIGGERED, n=1, name="WaitBossTriggered", log_fn=log),
+            name="WaitBossTriggered",
+        ),
+        SCMovement.Move(*Waypoints.BOSS_ROOM_POS, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Aura:MoveToBossRoom"),
+        suppress_watchdog_for(
+            coord.barrier_node(Barriers.ALL_AT_BOSS, required=PARTY_SIZE, name="AllAtBossBarrier", log_fn=log),
+            name="AllAtBossBarrier",
+        ),
         _dps_loop(coord, Barriers.BOSS_DEAD, find_varny, "VarnyDPS"),
-        coord.barrier_node(Barriers.BOSS_DEAD, required=PARTY_SIZE, name="BossDeadBarrier", log_fn=log),
+        suppress_watchdog_for(
+            coord.barrier_node(Barriers.BOSS_DEAD, required=PARTY_SIZE, name="BossDeadBarrier", log_fn=log),
+            name="BossDeadBarrier",
+        ),
         name="Level3",
     )
 

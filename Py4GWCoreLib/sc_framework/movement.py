@@ -66,6 +66,22 @@ _overlay: dict = {
 
 _overlay_log_ms: float = 0.0
 
+# ── movement logging ──────────────────────────────────────────────────────────
+_LOG_SRC    = "SC.Move"
+_clog_times: dict = {}   # key -> last log time ms
+
+
+def _clog(key: str, msg: str, interval_ms: float = 0.0) -> None:
+    """
+    Throttled ConsoleLog.  interval_ms=0 → always fire (state-change events).
+    interval_ms>0 → suppress repeats within that window (heartbeats / tick logs).
+    """
+    now = _time.monotonic() * 1_000.0
+    if now - _clog_times.get(key, 0.0) >= interval_ms:
+        from Py4GWCoreLib.py4gwcorelib_src.Console import ConsoleLog, Console
+        ConsoleLog(_LOG_SRC, msg, Console.MessageType.Info, log=True)
+        _clog_times[key] = now
+
 
 def _draw_thick_line_3d(
     dx,
@@ -303,13 +319,25 @@ class SCMovement:
 
         # ── safety guard ─────────────────────────────────────────────────
         if pre_move_check_fn is not None:
-            _gls: dict = {"last_log_ms": 0.0, "last_move_ms": 0.0}
+            _gls: dict = {"last_log_ms": 0.0, "last_move_ms": 0.0,
+                          "start_ms": 0.0, "passed": False}
             def _guard(_node: BehaviorTree.Node, _s=_gls) -> BehaviorTree.NodeState:
                 if pre_move_check_fn():
+                    if not _s["passed"]:
+                        _clog(f"{name}:guard_pass",
+                              f"{name}: guard PASSED → ({_tx:.0f}, {_ty:.0f})")
+                        _s["passed"] = True
                     return BehaviorTree.NodeState.SUCCESS
                 now = _time.monotonic() * 1_000.0
-                if log_fn is not None and now - _s["last_log_ms"] >= 2_000.0:
-                    log_fn(f"{name}: guard waiting…")
+                if _s["start_ms"] == 0.0:
+                    _s["start_ms"] = now
+                if now - _s["last_log_ms"] >= 2_000.0:
+                    elapsed_s = (now - _s["start_ms"]) / 1_000.0
+                    _clog(f"{name}:guard_wait",
+                          f"{name}: guard waiting {elapsed_s:.1f}s"
+                          f" — condition False → ({_tx:.0f}, {_ty:.0f})")
+                    if log_fn is not None:
+                        log_fn(f"{name}: guard waiting…")
                     _s["last_log_ms"] = now
                 # Re-issue Player.Move every 500 ms so the character keeps
                 # walking toward the destination while the guard waits
@@ -331,7 +359,12 @@ class SCMovement:
         # before BTMovement's async path resolver initialises.  Without
         # this there is a 1-3 tick standstill at every waypoint transition
         # (guard passes → BTMovement first tick does no movement).
+        _kick_fired = [False]
         def _kick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
+            if not _kick_fired[0]:
+                _clog(f"{name}:kick",
+                      f"{name}: kick Player.Move → ({_tx:.0f}, {_ty:.0f})")
+                _kick_fired[0] = True
             from Py4GWCoreLib.Player import Player as _P
             try:
                 _P.Move(_tx, _ty)
@@ -342,6 +375,9 @@ class SCMovement:
         steps.append(BehaviorTree.ActionNode(_kick, name=f"{name}:Kick"))
 
         # ── core move ────────────────────────────────────────────────────
+        # NOTE: _clog here would fire at BUILD time (when RunPath constructs
+        # all steps), not at tick time.  The tick-time start is logged by a
+        # wrapper node below so we see exactly when BTMovement first ticks.
         if log_fn is not None:
             log_fn(f"{name}: → ({_tx:.0f}, {_ty:.0f})")
 
@@ -349,7 +385,7 @@ class SCMovement:
         # takes 3-4 s per waypoint) so BTMovement issues Player.Move on its
         # very first tick.  SC waypoints are hand-crafted; GW's own client
         # pathfinder handles the direct hop between them.
-        move_tree = BTMovement.Move(
+        _raw_move_tree = BTMovement.Move(
             x=_tx,
             y=_ty,
             tolerance=tolerance,
@@ -358,16 +394,42 @@ class SCMovement:
             path_points_override=[(_tx, _ty)],
         )
 
+        # Wrap BTMovement in a tick-time log node so we see exactly when it
+        # starts executing (build-time _clog calls are useless here).
+        _bt_started = [False]
+        def _bt_tick(_) -> BehaviorTree.NodeState:
+            if not _bt_started[0]:
+                _clog(f"{name}:bt_start",
+                      f"{name}: BTMovement START → ({_tx:.0f}, {_ty:.0f})"
+                      f"  tol={tolerance:.0f}  timeout={timeout_ms}ms"
+                      f"  stall={stall_threshold_ms}ms"
+                      f"  recovery={recovery.value}")
+                _bt_started[0] = True
+            return _raw_move_tree.tick()
+
+        move_tree = BehaviorTree(BehaviorTree.ActionNode(_bt_tick, name=f"{name}:BTMove"))
+
         if recovery == RecoveryStrategy.NONE:
             steps.append(move_tree)
         else:
-            recovery_branch = SCMovement._build_recovery_branch(
-                strategy=recovery,
-                recovery_cast_fn=recovery_cast_fn,
-                x=_tx, y=_ty,
-                tolerance=tolerance,
-                timeout_ms=timeout_ms,
-                name=name,
+            _rec_val = recovery.value
+            def _log_recovery(_, _rv=_rec_val) -> BehaviorTree.NodeState:
+                _clog(f"{name}:recovery",
+                      f"{name}: RECOVERY — BTMovement timed out"
+                      f"  strategy={_rv} → ({_tx:.0f}, {_ty:.0f})")
+                return BehaviorTree.NodeState.SUCCESS
+
+            recovery_branch = BTComposite.Sequence(
+                BehaviorTree.ActionNode(_log_recovery, name=f"{name}:RecoveryLog"),
+                SCMovement._build_recovery_branch(
+                    strategy=recovery,
+                    recovery_cast_fn=recovery_cast_fn,
+                    x=_tx, y=_ty,
+                    tolerance=tolerance,
+                    timeout_ms=timeout_ms,
+                    name=name,
+                ),
+                name=f"{name}:Recovery",
             )
             steps.append(
                 BehaviorTree.SelectorNode(
@@ -377,18 +439,18 @@ class SCMovement:
             )
 
         # ── on_arrive callback ────────────────────────────────────────────
-        if on_arrive is not None or log_fn is not None:
-            _user_arrive = on_arrive
-            def _arrive(
-                _: BehaviorTree.Node,
-                _fn=_user_arrive, _lf=log_fn, _ax=_tx, _ay=_ty,
-            ) -> BehaviorTree.NodeState:
-                if _lf is not None:
-                    _lf(f"{name}: arrived ({_ax:.0f}, {_ay:.0f})")
-                if _fn is not None:
-                    _fn()
-                return BehaviorTree.NodeState.SUCCESS
-            steps.append(BehaviorTree.ActionNode(_arrive, name=f"{name}:OnArrive"))
+        _user_arrive = on_arrive
+        def _arrive(
+            _: BehaviorTree.Node,
+            _fn=_user_arrive, _lf=log_fn, _ax=_tx, _ay=_ty,
+        ) -> BehaviorTree.NodeState:
+            _clog(f"{name}:arrive", f"{name}: ARRIVED ({_ax:.0f}, {_ay:.0f})")
+            if _lf is not None:
+                _lf(f"{name}: arrived ({_ax:.0f}, {_ay:.0f})")
+            if _fn is not None:
+                _fn()
+            return BehaviorTree.NodeState.SUCCESS
+        steps.append(BehaviorTree.ActionNode(_arrive, name=f"{name}:OnArrive"))
 
         # ── assemble base tree ────────────────────────────────────────────
         if len(steps) == 1:
@@ -462,6 +524,9 @@ class SCMovement:
             _overlay["strategy"]          = "strafe"
             _overlay["strafe_start_ms"]   = 0.0
             _overlay["sticky_blocker_id"] = None
+            _clog(f"{name}:path_start",
+                  f"{name}: RunPath START — {_n_wps} waypoints  tol={_tol_snap:.0f}"
+                  f"  avoidance={'ON' if avoidance is not None else 'OFF'}")
             if log_fn is not None:
                 log_fn(f"{name}: {_n_wps} waypoints")
             return BehaviorTree.NodeState.SUCCESS
@@ -474,11 +539,16 @@ class SCMovement:
 
         def _arrive_wrapper(i: int, wp: tuple) -> None:
             _overlay["wp_idx"] = i + 1
+            _wx, _wy = float(wp[0]), float(wp[1])
+            if i + 1 < _n_wps:
+                _nx, _ny = _path_snap[i + 1]
+                _next_str = f"  → next ({_nx:.0f}, {_ny:.0f})"
+            else:
+                _next_str = "  → PATH COMPLETE"
+            _clog(f"{name}:wp_{i}_arrive",
+                  f"{name}: WP [{i + 1}/{_n_wps}] arrived ({_wx:.0f}, {_wy:.0f}){_next_str}")
             if log_fn is not None:
-                log_fn(
-                    f"{name} [{i + 1}/{_n_wps}]:"
-                    f" ({float(wp[0]):.0f}, {float(wp[1]):.0f})"
-                )
+                log_fn(f"{name} [{i + 1}/{_n_wps}]: ({_wx:.0f}, {_wy:.0f})")
             if _outer_on_arrive is not None:
                 _outer_on_arrive(i, wp)
 

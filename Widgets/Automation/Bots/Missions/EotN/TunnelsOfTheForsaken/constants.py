@@ -191,14 +191,22 @@ class GateClip:
     GATE_X_MIN    = -8973.0
     GATE_X_MAX    = -8390.0
     CORRIDOR_Y    = 3529.0
-    SUCCESS_MIN_X = -8900.0
 
     GATE_POS: tuple[float, float] = (-8821.39, 3495.75)  # mob lure position
-    CLIP_POS: tuple[float, float] = (-8639.05, 3495.43)  # walk-backwards endpoint
+    CLIP_POS: tuple[float, float] = (-8530.00, 3495.24)  # walk-backwards endpoint (from recording)
     DEST_POS: tuple[float, float] = (-8645.88, 4210.55)  # destination after clip
 
     FACE_SOUTH_Y  = 3000.0
-    SUCCESS_Y     = 3515.0
+
+    # Polygon defining the area north of the gate that confirms a successful clip.
+    # Points are (x, y) — Z ignored.  Order must form a simple (non-self-intersecting)
+    # polygon; these four corners wind counter-clockwise when viewed from above.
+    SUCCESS_POLYGON: tuple[tuple[float, float], ...] = (
+        (-8395.18, 3544.36),
+        (-8967.01, 3573.01),
+        (-9172.54, 4104.49),
+        (-8361.22, 4591.23),
+    )
 
     MOB_AT_GATE_DIST  = 150.0
     AGGRO_BREAK_TICKS = 5

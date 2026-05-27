@@ -22,8 +22,11 @@ Variant (Optional slot, slot 7):
 
 from __future__ import annotations
 
+import datetime
 import enum
+import json
 import math
+import os
 import time
 
 from Py4GWCoreLib.GlobalCache import GLOBAL_CACHE
@@ -31,12 +34,9 @@ from Py4GWCoreLib.Player import Player
 from Py4GWCoreLib.Agent import Agent
 from Py4GWCoreLib.AgentArray import AgentArray
 from Py4GWCoreLib.Camera import Camera
-from Py4GWCoreLib.UIManager import UIManager
 from Py4GWCoreLib.py4gwcorelib_src.BehaviorTree import BehaviorTree
 from Py4GWCoreLib.py4gwcorelib_src.Utils import Utils
 from Py4GWCoreLib.routines_src.behaviourtrees_src.composite import BTComposite
-from Py4GWCoreLib.enums_src.UI_enums import ControlAction
-
 from Py4GWCoreLib.sc_framework import (
     SCRole, register_role, SCCoordinator,
     SCMovement, RecoveryStrategy,
@@ -55,6 +55,7 @@ from ._shared import (
     make_sf_upkeep, make_sod_upkeep, make_iau_upkeep,
     make_dash_upkeep, make_dwarven_stability_upkeep,
     make_stuck_watchdog, make_consumable_service,
+    set_watchdog_paused, suppress_watchdog_for,
 )
 
 
@@ -118,9 +119,6 @@ class DasherRole(SCRole):
 
 # ── shared helpers ────────────────────────────────────────────────────────────
 
-def _sf_active() -> bool:
-    return GLOBAL_CACHE.Effects.HasEffect(Player.GetAgentID(), SkillID.ShadowForm)
-
 def _mono_ms() -> float:
     return time.monotonic() * 1_000.0
 
@@ -142,31 +140,36 @@ def _point_in_polygon(px: float, py: float, polygon: tuple) -> bool:
 
 def _build_getting_there() -> BehaviorTree:
     """
-    Travel from The Breach / Verdant Cascades to TotF Level 1.
+    Travel from Verdant Cascades to TotF Level 1.
 
     Outpost exit is handled by the OutpostHandler step that precedes this in
-    the planner sequence.  This function owns only the explorable portion:
+    the planner sequence.  OutpostHandler returns SUCCESS as soon as the map
+    is no longer an outpost (including during the loading screen), so this
+    function must wait for VC to finish loading before issuing any movement.
 
-    1. RunPath through Verdant Cascades with avoidance to the dungeon
-       entrance portal.  SF must be active before each step (cast by the
-       upkeep service while the node waits with RUNNING).
-       Walking into the portal crosses the zone line automatically — no
-       NPC interaction required.
-    2. Wait for the instance map to finish loading.
+    1. Wait until Verdant Cascades is fully loaded and explorable.
+    2. RunPath through Verdant Cascades with avoidance to the dungeon
+       entrance portal.  SF is maintained by the parallel upkeep service.
+       Walking into the portal crosses the zone line automatically.
+    3. Wait for the TotF Level 1 instance to finish loading.
     """
     from Py4GWCoreLib.Map import Map
 
     return BTComposite.Sequence(
+        SCActions.WaitForCondition(
+            lambda: Map.IsExplorable() and Map.GetMapID() == MapID.VERDANT_CASCADES,
+            timeout_ms=30_000,
+            name="Dasher:WaitVerdantLoad",
+        ),
         SCMovement.RunPath(
             Waypoints.VERDANT_TO_DUNGEON,
-            pre_move_check_fn=_sf_active,
             recovery=RecoveryStrategy.STRAFE,
             avoidance=AvoidanceConfig(),
             log_fn=movement_log,
             name="Dasher:GettingThere",
         ),
         SCActions.WaitForCondition(
-            lambda: Map.GetMapID() == MapID.TUNNELS_LEVEL1,
+            lambda: Map.IsExplorable() and Map.GetMapID() == MapID.TUNNELS_LEVEL1,
             timeout_ms=30_000,
             name="Dasher:WaitDungeonLoad",
         ),
@@ -191,7 +194,6 @@ def _build_level1(coord: SCCoordinator) -> BehaviorTree:
     return BTComposite.Sequence(
         SCMovement.RunPath(
             Waypoints.LEVEL1_MAIN_RUNNER[:-1],
-            pre_move_check_fn=_sf_active,
             recovery=RecoveryStrategy.STRAFE,
             avoidance=AvoidanceConfig(),
             log_fn=movement_log,
@@ -201,21 +203,22 @@ def _build_level1(coord: SCCoordinator) -> BehaviorTree:
         # the wall do not deflect the character away from the required position.
         SCMovement.Move(
             *hos_pos,
-            pre_move_check_fn=_sf_active,
             log_fn=movement_log,
             name="Dasher:HoSApproach",
         ),
         _build_hos_skip(),
         SCMovement.RunPath(
             Waypoints.HOS_POST_SKIP,
-            pre_move_check_fn=_sf_active,
             recovery=RecoveryStrategy.STRAFE,
             avoidance=AvoidanceConfig(),
             log_fn=movement_log,
             name="Dasher:PostSkipRun",
         ),
         _build_gate_clip_node(),
-        coord.wait_for_n_node(Signals.QUEST_GRABBED, n=PARTY_SIZE - 1, name="WaitQuestGrabbed", log_fn=log),
+        suppress_watchdog_for(
+            coord.wait_for_n_node(Signals.QUEST_GRABBED, n=PARTY_SIZE - 1, name="WaitQuestGrabbed", log_fn=log),
+            name="WaitQuestGrabbed",
+        ),
         coord.signal_node(Signals.GATE_DONE, name="SignalGateDone", log_fn=log),
         name="Level1",
     )
@@ -319,41 +322,40 @@ def _build_gate_clip_node() -> BehaviorTree:
     """
     Mob-collision gate clip at the end of Level 1.
 
-    Ports the gate_clip_test.py state machine as a single BT ActionNode.
+    Mechanic (confirmed from 7 recordings, 4 successful):
+        The clip is a ONE-TICK collision resolution event.  Player must be AT the
+        gate wall (py ≈ GATE_POS[1] ≈ 3495–3498; wall stops you here from the south).
+        When 1+ enemy reaches dy ≈ [-35, 0] (south face of wall), the game resolves
+        the player–enemy–wall overlap by teleporting the player 85–115 units north.
+        Player velocity at clip time can be zero; no active northward movement is required,
+        but issuing Player.Move to DEST_POS keeps the player pressed against the wall and
+        ensures the game sees a northward intent if that helps resolution.
 
-    States:
-        approach     walk to GateClip.GATE_POS
-        wait_mobs    wait for hostile agents within MOB_WAIT_RADIUS
-        lure_wait    wait LURE_WAIT_MS for mobs to stop moving + reach melee range
-        walk_back    hold MoveBackward; watch for any tracked enemy to start moving
-        clip         jiggle Forward+StrafeRight until player crosses SUCCESS_Y
-        done         (internal) issue post-clip move and return SUCCESS next tick
+    Phase sequence:
+        approach    Walk to GATE_POS, player stops at wall naturally.
+        clip        Issue Player.Move(target_x, DEST_POS_Y) every 300 ms so the player
+                    presses north against the wall.  Nudge south to re-attract enemies if
+                    none are close to gate for STALL_MS.
+        done        Post-clip move issued; return SUCCESS next tick.
     """
-    _MOB_WAIT_RADIUS    = 600.0
-    _MELEE_RANGE        = 160.0
-    _LURE_WAIT_MS       = 3_000
-    _WALK_BACK_TIMEOUT  = 8_000
-    _CLIP_DURATION_MS   = 6_000
-    _CLIP_PRESS_MS      = 200
-    _CLIP_RELEASE_MS    = 50
-    _CLIP_JIGGLE_RAD    = math.radians(5.0)
-    _APPROACH_REISSUE   = 500
-    _ARRIVAL_DIST       = 80.0
-    _MAX_RETRIES        = 10
-    _WALK_YAW           = math.pi   # 180°
-    _CLIP_YAW           = 3.022     # 173.1°
+    _ENEMY_DY_MIN     = -50.0    # enemies within 50 units south of gate are "close to gate"
+    _CLIP_DURATION_MS = 25_000
+    _APPROACH_REISSUE = 500
+    _MOVE_REISSUE     = 300      # how often to reissue Player.Move in clip phase
+    _ARRIVAL_Y        = GateClip.GATE_WALL_Y - 10.0  # wall stops player here; check Y only
+    _MAX_RETRIES      = 10
+
+    _REC_DIR = os.path.join(os.getcwd(), "gate_clip_recordings")
 
     state: dict = {
-        "phase":          "approach",
-        "phase_ms":       0.0,
-        "tracked":        set(),
-        "backward_held":  False,
-        "clip_phase":     "idle",
-        "clip_phase_ms":  0.0,
-        "clip_jiggle":    1,
-        "clip_held":      False,
-        "retry":          0,
-        "last_move_ms":   0.0,
+        "phase":        "approach",
+        "phase_ms":     0.0,
+        "retry":        0,
+        "last_move_ms": 0.0,
+        "rec_file":     None,
+        "rec_frames":   0,
+        "rec_start_ms": 0.0,
+        "rec_attempt":  0,
     }
 
     def _now() -> float:
@@ -362,150 +364,171 @@ def _build_gate_clip_node() -> BehaviorTree:
     def _elapsed() -> float:
         return _now() - state["phase_ms"]
 
+    # ── recording helpers ──────────────────────────────────────────────────
+
+    def _rec_open(attempt: int) -> None:
+        try:
+            os.makedirs(_REC_DIR, exist_ok=True)
+            ts   = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            path = os.path.join(_REC_DIR, f"attempt_{attempt:02d}_{ts}.jsonl")
+            state["rec_file"]     = open(path, "w", encoding="utf-8")
+            state["rec_frames"]   = 0
+            state["rec_start_ms"] = _now()
+            log(f"GateClip: recording → {path}")
+        except Exception as exc:
+            log(f"GateClip: recording FAILED to open — {exc}")
+
+    def _rec_close(outcome: str, clipped: bool) -> None:
+        f = state["rec_file"]
+        if f is None:
+            return
+        duration = _now() - state["rec_start_ms"]
+        f.write(json.dumps({
+            "summary":     True,
+            "attempt":     state["rec_attempt"],
+            "frames":      state["rec_frames"],
+            "duration_ms": round(duration, 1),
+            "clipped":     clipped,
+            "outcome":     outcome,
+        }) + "\n")
+        f.close()
+        state["rec_file"] = None
+        log(f"GateClip: recording closed — {outcome} ({state['rec_frames']} frames)")
+
+    def _rec_tick(px: float, py: float, phase: str, cand: dict | None) -> None:
+        f = state["rec_file"]
+        if f is None:
+            return
+        player_id = Player.GetAgentID()
+        pvx, pvy  = Agent.GetVelocityXY(player_id)
+        yaw       = Camera.GetYaw()
+        enemies   = []
+        try:
+            for aid in AgentArray.GetEnemyArray():
+                if not Agent.IsAlive(aid):
+                    continue
+                ax, ay = Agent.GetXY(aid)
+                dist   = Utils.Distance((px, py), (ax, ay))
+                if dist > 800.0:
+                    continue
+                avx, avy = Agent.GetVelocityXY(aid)
+                enemies.append({
+                    "id":      aid,
+                    "x":       round(ax, 2),
+                    "y":       round(ay, 2),
+                    "vx":      round(avx, 4),
+                    "vy":      round(avy, 4),
+                    "moving":  Agent.IsMoving(aid),
+                    "dist":    round(dist, 1),
+                    "dy_gate": round(ay - GateClip.GATE_WALL_Y, 2),
+                })
+        except Exception:
+            pass
+        try:
+            f.write(json.dumps({
+                "t":       round(_now() - state["rec_start_ms"], 1),
+                "phase":   phase,
+                "px":      round(px, 2),
+                "py":      round(py, 2),
+                "pvx":     round(pvx, 4),
+                "pvy":     round(pvy, 4),
+                "yaw_d":   round(math.degrees(yaw), 2),
+                "success": _point_in_polygon(px, py, GateClip.SUCCESS_POLYGON),
+                "cand_id": cand["id"]                  if cand else None,
+                "cand_tx": round(cand["target_x"], 2)  if cand else None,
+                "cand_dt": 0                            if cand else None,
+                "cand_dy": round(cand["dy"], 2)         if cand else None,
+                "enemies": enemies,
+            }) + "\n")
+            state["rec_frames"] += 1
+        except Exception as exc:
+            log(f"GateClip: rec_tick write error — {exc}")
+
     def _transition(phase: str) -> None:
-        log(f"GateClip: → {phase}")
-        state["phase"]    = phase
-        state["phase_ms"] = _now()
+        log(f"GateClip: -> {phase}")
+        if phase == "clip":
+            state["rec_attempt"] += 1
+            _rec_open(state["rec_attempt"])
+            set_watchdog_paused(True)   # intentionally stationary at wall
+        elif phase == "approach":
+            set_watchdog_paused(False)  # about to move; watchdog should be active
+            if state["rec_file"] is not None:
+                _rec_close("retry", False)
+        state["phase"]        = phase
+        state["phase_ms"]     = _now()
+        state["last_move_ms"] = 0.0
 
-    def _hold_backward() -> None:
-        if not state["backward_held"]:
-            UIManager.Keydown(ControlAction.ControlAction_MoveBackward.value, 0)
-            state["backward_held"] = True
-
-    def _release_backward() -> None:
-        if state["backward_held"]:
-            UIManager.Keyup(ControlAction.ControlAction_MoveBackward.value, 0)
-            state["backward_held"] = False
-
-    def _release_clip_keys() -> None:
-        if state["clip_held"]:
-            UIManager.Keyup(ControlAction.ControlAction_MoveForward.value, 0)
-            UIManager.Keyup(ControlAction.ControlAction_StrafeRight.value, 0)
-            state["clip_held"]  = False
-        state["clip_phase"] = "idle"
-
-    def _release_all() -> None:
-        _release_backward()
-        _release_clip_keys()
-
-    def _nearby_hostiles() -> list:
-        px, py = Player.GetXY()
+    def _find_gate_enemies() -> list[dict]:
+        """Return alive enemies within ENEMY_DY_MIN south of the gate wall, closest first."""
         result = []
         try:
             for aid in AgentArray.GetEnemyArray():
                 if not Agent.IsAlive(aid):
                     continue
-                dist = Utils.Distance((px, py), Agent.GetXY(aid))
-                if dist < _MOB_WAIT_RADIUS:
-                    result.append(aid)
+                ax, ay = Agent.GetXY(aid)
+                dy = ay - GateClip.GATE_WALL_Y
+                if _ENEMY_DY_MIN < dy < 10.0:
+                    result.append({"id": aid, "x": ax, "dy": dy,
+                                   "target_x": ax})
         except Exception:
             pass
+        result.sort(key=lambda e: e["dy"], reverse=True)  # dy closest to 0 first
         return result
 
-    def _tick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
-        phase = state["phase"]
+    def _best_target_x(enemies: list[dict]) -> float:
+        """Mean X of the two closest enemies, clamped to gate bounds."""
+        xs = [e["x"] for e in enemies[:2]]
+        tx = sum(xs) / len(xs)
+        return max(GateClip.GATE_X_MIN, min(GateClip.GATE_X_MAX, tx))
 
-        # ── done ─────────────────────────────────────────────────────────────
-        if phase == "done":
-            _release_all()
+    def _tick(_: BehaviorTree.Node) -> BehaviorTree.NodeState:
+        if state["phase"] == "done":
             return BehaviorTree.NodeState.SUCCESS
 
         px, py = Player.GetXY()
+        now    = _now()
 
-        # ── approach ─────────────────────────────────────────────────────────
-        if phase == "approach":
-            dist = Utils.Distance((px, py), GateClip.GATE_POS)
-            if dist < _ARRIVAL_DIST:
-                _transition("wait_mobs")
+        gate_enemies = _find_gate_enemies()
+        target_x     = _best_target_x(gate_enemies) if gate_enemies else GateClip.GATE_POS[0]
+
+        # ── approach ──────────────────────────────────────────────────────────
+        if state["phase"] == "approach":
+            if py >= _ARRIVAL_Y:
+                _transition("clip")
                 return BehaviorTree.NodeState.RUNNING
-            now = _now()
             if now - state["last_move_ms"] > _APPROACH_REISSUE:
                 Player.Move(*GateClip.GATE_POS)
                 state["last_move_ms"] = now
 
-        # ── wait_mobs ─────────────────────────────────────────────────────────
-        elif phase == "wait_mobs":
-            Camera.SetYaw(_WALK_YAW)
-            if _nearby_hostiles():
-                _transition("lure_wait")
-
-        # ── lure_wait ─────────────────────────────────────────────────────────
-        elif phase == "lure_wait":
-            Camera.SetYaw(_WALK_YAW)
-            if _elapsed() < _LURE_WAIT_MS:
-                return BehaviorTree.NodeState.RUNNING
-            hostiles = _nearby_hostiles()
-            if any(Agent.IsMoving(aid) for aid in hostiles):
-                return BehaviorTree.NodeState.RUNNING
-            far = [aid for aid in hostiles
-                   if Utils.Distance((px, py), Agent.GetXY(aid)) > _MELEE_RANGE]
-            if far:
-                return BehaviorTree.NodeState.RUNNING
-            state["tracked"] = set(hostiles)
-            _transition("walk_back")
-
-        # ── walk_back ─────────────────────────────────────────────────────────
-        elif phase == "walk_back":
-            Camera.SetYaw(_WALK_YAW)
-            _hold_backward()
-            for aid in list(state["tracked"]):
-                try:
-                    if Agent.IsAlive(aid) and Agent.IsMoving(aid):
-                        _release_backward()
-                        _transition("clip")
-                        return BehaviorTree.NodeState.RUNNING
-                except Exception:
-                    pass
-            if _elapsed() >= _WALK_BACK_TIMEOUT:
-                _release_backward()
-                _transition("lure_wait")
-
         # ── clip ──────────────────────────────────────────────────────────────
-        elif phase == "clip":
-            now        = _now()
-            clip_phase = state["clip_phase"]
-            Camera.SetYaw(_CLIP_YAW + state["clip_jiggle"] * _CLIP_JIGGLE_RAD)
+        elif state["phase"] == "clip":
+            cand = gate_enemies[0] if gate_enemies else None
+            cand_rec = {"id": cand["id"], "target_x": target_x, "dy": cand["dy"]} if cand else None
+            _rec_tick(px, py, "clip", cand_rec)
 
-            if clip_phase == "idle":
-                UIManager.Keydown(ControlAction.ControlAction_MoveForward.value, 0)
-                UIManager.Keydown(ControlAction.ControlAction_StrafeRight.value, 0)
-                state["clip_held"]      = True
-                state["clip_phase"]     = "pressing"
-                state["clip_phase_ms"]  = now
-
-            elif clip_phase == "pressing":
-                if now - state["clip_phase_ms"] >= _CLIP_PRESS_MS:
-                    UIManager.Keyup(ControlAction.ControlAction_MoveForward.value, 0)
-                    UIManager.Keyup(ControlAction.ControlAction_StrafeRight.value, 0)
-                    state["clip_held"]     = False
-                    state["clip_phase"]    = "releasing"
-                    state["clip_phase_ms"] = now
-
-            elif clip_phase == "releasing":
-                if now - state["clip_phase_ms"] >= _CLIP_RELEASE_MS:
-                    state["clip_jiggle"] = -state["clip_jiggle"]
-                    UIManager.Keydown(ControlAction.ControlAction_MoveForward.value, 0)
-                    UIManager.Keydown(ControlAction.ControlAction_StrafeRight.value, 0)
-                    state["clip_held"]     = True
-                    state["clip_phase"]    = "pressing"
-                    state["clip_phase_ms"] = now
-
-            if py > GateClip.SUCCESS_Y and px > GateClip.SUCCESS_MIN_X:
+            if _point_in_polygon(px, py, GateClip.SUCCESS_POLYGON):
                 log("GateClip: SUCCESS — through the gate")
-                _release_all()
-                Camera.SetYaw(_WALK_YAW)
+                _rec_close("success", True)
+                set_watchdog_paused(False)
                 Player.Move(*GateClip.DEST_POS)
                 state["phase"] = "done"
-                return BehaviorTree.NodeState.RUNNING  # one more frame before SUCCESS
+                return BehaviorTree.NodeState.RUNNING
 
             if _elapsed() >= _CLIP_DURATION_MS:
-                _release_all()
                 state["retry"] += 1
                 if state["retry"] > _MAX_RETRIES:
                     log("GateClip: FAILED — max retries reached")
+                    _rec_close("failure", False)
+                    set_watchdog_paused(False)
                     return BehaviorTree.NodeState.FAILURE
                 log(f"GateClip: clip timeout, retry {state['retry']}/{_MAX_RETRIES}")
                 _transition("approach")
+                return BehaviorTree.NodeState.RUNNING
+
+            # press northward against wall; clip fires when an enemy reaches gate
+            if now - state["last_move_ms"] > _MOVE_REISSUE:
+                Player.Move(target_x, GateClip.DEST_POS[1])
+                state["last_move_ms"] = now
 
         return BehaviorTree.NodeState.RUNNING
 
@@ -518,7 +541,6 @@ def _build_level2(coord: SCCoordinator) -> BehaviorTree:
     return BTComposite.Sequence(
         SCMovement.RunPath(
             Waypoints.LEVEL2_ROUTE,
-            pre_move_check_fn=_sf_active,
             avoidance=AvoidanceConfig(),
             log_fn=movement_log,
             name="Dasher:Level2Run",
@@ -547,18 +569,27 @@ def _build_level3(coord: SCCoordinator, variant: DasherVariant) -> BehaviorTree:
         )
 
     return BTComposite.Sequence(
-        SCMovement.Move(*Waypoints.PHANTOM_POS, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Dasher:MoveToPhantom"),
+        SCMovement.Move(*Waypoints.PHANTOM_POS, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Dasher:MoveToPhantom"),
         *hex_phantom_steps,
-        coord.barrier_node(Barriers.PHANTOM_DEAD, required=PARTY_SIZE, name="PhantomDeadBarrier", log_fn=log),
+        suppress_watchdog_for(
+            coord.barrier_node(Barriers.PHANTOM_DEAD, required=PARTY_SIZE, name="PhantomDeadBarrier", log_fn=log),
+            name="PhantomDeadBarrier",
+        ),
 
         SCActions.PickupNearestItem(ModelID.BOSS_KEY, name="PickupBossKey"),
-        SCMovement.Move(*Waypoints.CLIFFSIDE_TRIGGER, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Dasher:MoveToCliffside"),
+        SCMovement.Move(*Waypoints.CLIFFSIDE_TRIGGER, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Dasher:MoveToCliffside"),
         coord.signal_node(Signals.BOSS_TRIGGERED, name="SignalBossTriggered", log_fn=log),
 
-        SCMovement.Move(*Waypoints.BOSS_ROOM_POS, pre_move_check_fn=_sf_active, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Dasher:MoveToBossRoom"),
-        coord.barrier_node(Barriers.ALL_AT_BOSS, required=PARTY_SIZE, name="AllAtBossBarrier", log_fn=log),
+        SCMovement.Move(*Waypoints.BOSS_ROOM_POS, avoidance=AvoidanceConfig(), log_fn=movement_log, name="Dasher:MoveToBossRoom"),
+        suppress_watchdog_for(
+            coord.barrier_node(Barriers.ALL_AT_BOSS, required=PARTY_SIZE, name="AllAtBossBarrier", log_fn=log),
+            name="AllAtBossBarrier",
+        ),
         _barbs_loop_on_varny(coord, variant),
-        coord.barrier_node(Barriers.BOSS_DEAD, required=PARTY_SIZE, name="BossDeadBarrier", log_fn=log),
+        suppress_watchdog_for(
+            coord.barrier_node(Barriers.BOSS_DEAD, required=PARTY_SIZE, name="BossDeadBarrier", log_fn=log),
+            name="BossDeadBarrier",
+        ),
         name="Level3",
     )
 

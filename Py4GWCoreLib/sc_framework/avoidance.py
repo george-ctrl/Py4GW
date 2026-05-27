@@ -158,8 +158,9 @@ class AvoidanceSentinel:
         framework) with a single ActionNode that owns both ticks.
         """
         def _tick(_node: BehaviorTree.Node) -> BehaviorTree.NodeState:
+            result = primary.tick()
             sentinel._tick_avoidance()
-            return primary.tick()
+            return result
 
         return BehaviorTree(BehaviorTree.ActionNode(_tick, name=f"{name}:WithSentinel"))
 
@@ -282,6 +283,10 @@ class AvoidanceSentinel:
             if sticky is not None:
                 sample = sticky
             else:
+                self._log_event(
+                    "sticky_clear",
+                    f"Sticky blocker {self._sticky_blocker_id} left corridor — lock released",
+                )
                 self._sticky_blocker_id = None  # left the corridor
 
         # Publish state for draw_path_overlay() and the Movement debug tab.
@@ -321,10 +326,17 @@ class AvoidanceSentinel:
                 # Grace-period re-issue: corridor has been clear for <500 ms.
                 # Keep nudging click-to-move so BTMovement's stall timer never fires.
                 if now_ms - self._last_reissue_ms >= 100.0:
+                    goal_now = self._goal_fn()
                     try:
-                        Player.Move(*self._goal_fn())
+                        Player.Move(*goal_now)
                     except Exception:
                         pass
+                    remaining_ms = self._post_clear_reissue_until_ms - now_ms
+                    self._log_debug(
+                        "grace_reissue",
+                        f"Grace reissue Player.Move → {goal_now}"
+                        f"  ({remaining_ms:.0f}ms remaining in window)",
+                    )
                     self._last_reissue_ms = now_ms
         else:
             self._last_sample = sample
@@ -421,11 +433,13 @@ class AvoidanceSentinel:
         gy = gdy / gdist
 
         best: ObstacleSample | None = None
+        _n_alive = _n_close = _n_corridor = 0
 
         try:
             for agent_id in AgentArray.GetEnemyArray():
                 if not Agent.IsAlive(agent_id):
                     continue
+                _n_alive += 1
                 ax, ay = Agent.GetXY(agent_id)
                 tox  = ax - px
                 toy  = ay - py
@@ -437,8 +451,10 @@ class AvoidanceSentinel:
                     continue   # behind us or right at our feet
                 if dist > self._cfg.check_radius:
                     continue   # out of scan range
+                _n_close += 1
                 if abs(cross) > self._cfg.path_half_width + self._cfg.agent_radius:
                     continue   # outside path corridor
+                _n_corridor += 1
 
                 if best is None or dot < best.dot:
                     best = ObstacleSample(
@@ -450,6 +466,20 @@ class AvoidanceSentinel:
                     )
         except Exception as exc:
             self._log_event("sample_err", f"Avoidance sample failed: {exc}")
+
+        blocker_str = (
+            f"agent {best.agent_id}  dist={best.distance:.0f}"
+            f"  dot={best.dot:.0f}  cross={best.cross:.0f}"
+            f"  {'LEFT' if best.is_left else 'RIGHT'}"
+            if best is not None else "none"
+        )
+        self._log_debug(
+            "scan",
+            f"Corridor scan: {_n_alive} alive"
+            f"  {_n_close} ahead+in-range(r={self._cfg.check_radius:.0f})"
+            f"  {_n_corridor} in corridor(hw={self._cfg.path_half_width:.0f})"
+            f"  blocker={blocker_str}",
+        )
 
         return best
 
@@ -514,15 +544,25 @@ class AvoidanceSentinel:
 
         gdx = goal[0] - player_pos[0]
         gdy = goal[1] - player_pos[1]
-        Camera.SetYaw(math.atan2(gdy, gdx))
+        yaw = math.atan2(gdy, gdx)
+        Camera.SetYaw(yaw)
 
         self._hold_key(ControlAction.ControlAction_MoveForward.value)
         if obs.is_left:
             self._hold_key(ControlAction.ControlAction_StrafeRight.value)
             self._release_key(ControlAction.ControlAction_StrafeLeft.value)
+            strafe_dir = "RIGHT"
         else:
             self._hold_key(ControlAction.ControlAction_StrafeLeft.value)
             self._release_key(ControlAction.ControlAction_StrafeRight.value)
+            strafe_dir = "LEFT"
+
+        self._log_debug(
+            "strafe_tick",
+            f"STRAFE  yaw={math.degrees(yaw):.1f}°  key={strafe_dir}"
+            f"  obs agent={obs.agent_id}  dist={obs.distance:.0f}"
+            f"  dot={obs.dot:.0f}  cross={obs.cross:.0f}",
+        )
 
     def _apply_yaw_adjust(
         self,
@@ -558,9 +598,11 @@ class AvoidanceSentinel:
             side = "LEFT" if obs.is_left else "RIGHT"
             self._log_event(
                 "yaw",
-                f"Avoidance YAW  goal={math.degrees(goal_yaw):.1f}°  "
-                f"deflect={math.degrees(sign * deflect_rad):+.1f}° ({side})  "
-                f"→ {math.degrees(new_yaw):.1f}°",
+                f"YAW_ADJUST  goal_yaw={math.degrees(goal_yaw):.1f}°"
+                f"  deflect={math.degrees(sign * deflect_rad):+.1f}° ({side})"
+                f"  → new_yaw={math.degrees(new_yaw):.1f}°"
+                f"  target=({target_x:.0f}, {target_y:.0f})"
+                f"  dist_to_goal={dist_to_goal:.0f}",
             )
             self._last_yaw = new_yaw
 
@@ -579,15 +621,28 @@ class AvoidanceSentinel:
         if action not in self._active_keys:
             UIManager.Keydown(action, 0)
             self._active_keys.add(action)
+            self._log_event(
+                f"key_down_{action}",
+                f"KEY DOWN  action={action}  held={sorted(self._active_keys)}",
+            )
 
     def _release_key(self, action: int) -> None:
         from Py4GWCoreLib.UIManager import UIManager
         if action in self._active_keys:
             UIManager.Keyup(action, 0)
             self._active_keys.discard(action)
+            self._log_event(
+                f"key_up_{action}",
+                f"KEY UP    action={action}  remaining={sorted(self._active_keys)}",
+            )
 
     def _release_all(self) -> None:
         from Py4GWCoreLib.UIManager import UIManager
+        if self._active_keys:
+            self._log_event(
+                "release_all",
+                f"RELEASE ALL  keys={sorted(self._active_keys)}",
+            )
         for key in list(self._active_keys):
             UIManager.Keyup(key, 0)
         self._active_keys.clear()

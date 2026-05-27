@@ -893,6 +893,12 @@
           "name": "Faintheartedness",
           "profession": "Necromancer",
           "profession_id": 4
+        },
+        "142": {
+          "id": 142,
+          "name": "Lingering Curse",
+          "profession": "Necromancer",
+          "profession_id": 4
         }
       }
     },
@@ -1395,6 +1401,12 @@
         }
       },
       "observed_skills": {
+        "396": {
+          "id": 396,
+          "name": "Dual Shot",
+          "profession": "Ranger",
+          "profession_id": 2
+        },
         "398": {
           "id": 398,
           "name": "Penetrating Attack",
@@ -21480,6 +21492,12 @@
           "profession": "Mesmer",
           "profession_id": 5
         },
+        "26": {
+          "id": 26,
+          "name": "Empathy",
+          "profession": "Mesmer",
+          "profession_id": 5
+        },
         "42": {
           "id": 42,
           "name": "Energy Burn",
@@ -21536,6 +21554,12 @@
           "profession": "Necromancer",
           "profession_id": 4
         },
+        "113": {
+          "id": 113,
+          "name": "Tainted Flesh",
+          "profession": "Necromancer",
+          "profession_id": 4
+        },
         "1365": {
           "id": 1365,
           "name": "Signet of Lost Souls",
@@ -21555,7 +21579,7 @@
         "\\\\x8102\\\\x3D15\\\\x6FEC"
       ],
       "inferred_primary": "Elementalist",
-      "inferred_secondary": "",
+      "inferred_secondary": "Necromancer",
       "model_ids": [
         8211
       ],
@@ -21568,6 +21592,12 @@
         }
       },
       "observed_skills": {
+        "126": {
+          "id": 126,
+          "name": "Life Transfer",
+          "profession": "Necromancer",
+          "profession_id": 4
+        },
         "1369": {
           "id": 1369,
           "name": "Lightning Bolt",
@@ -21669,6 +21699,12 @@
         "880": {
           "base_id": 880,
           "id": 880,
+          "instance_type": "Explorable",
+          "name": "Unknown Map ID"
+        },
+        "881": {
+          "base_id": 881,
+          "id": 881,
           "instance_type": "Explorable",
           "name": "Unknown Map ID"
         }
@@ -21791,6 +21827,218 @@
           "name": "Conflagration",
           "profession": "Ranger",
           "profession_id": 2
+        }
+      }
+    },
+    "enc:\\\\x8102\\\\x3D2E\\\\x99ED\\\\xE3F4\\\\x14BD": {
+      "encoded_names": [
+        "\\\\x8102\\\\x3D2E\\\\x99ED\\\\xE3F4\\\\x14BD"
+      ],
+      "inferred_primary": "Ranger",
+      "inferred_secondary": "",
+      "model_ids": [
+        8216
+      ],
+      "observed_maps": {
+        "880": {
+          "base_id": 880,
+          "id": 880,
+          "instance_type": "Explorable",
+          "name": "Unknown Map ID"
+        }
+      },
+      "observed_skills": {
+        "391": {
+          "id": 391,
+          "name": "Hunter's Shot",
+          "profession": "Ranger",
+          "profession_id": 2
+        },
+        "394": {
+          "id": 394,
+          "name": "Power Shot",
+          "profession": "Ranger",
+          "profession_id": 2
+        },
+        "395": {
+          "id": 395,
+          "name": "Barrage",
+          "profession": "Ranger",
+          "profession_id": 2
+        },
+        "396": {
+          "id": 396,
+          "name": "Dual Shot",
+          "profession": "Ranger",
+          "profession_id": 2
+        },
+        "426": {
+          "id": 426,
+          "name": "Savage Shot",
+          "profession": "Ranger",
+          "profession_id": 2
+        },
+        "433": {
+          "id": 433,
+          "name": "Kindle Arrows",
+          "profession": "Ranger",
+          "profession_id": 2
+        }
+      }
+    },
+    "enc:\\\\x8102\\\\x3D33\\\\xF06A\\\\x3A94": {
+      "encoded_names": [
+        "\\\\x8102\\\\x3D33\\\\xF06A\\\\x3A94"
+      ],
+      "inferred_primary": "Mesmer",
+      "inferred_secondary": "",
+      "model_ids": [
+        8217
+      ],
+      "observed_maps": {
+        "880": {
+          "base_id": 880,
+          "id": 880,
+          "instance_type": "Explorable",
+          "name": "Unknown Map ID"
+        }
+      },
+      "observed_skills": {
+        "23": {
+          "id": 23,
+          "name": "Power Spike",
+          "profession": "Mesmer",
+          "profession_id": 5
+        },
+        "25": {
+          "id": 25,
+          "name": "Power Drain",
+          "profession": "Mesmer",
+          "profession_id": 5
+        },
+        "26": {
+          "id": 26,
+          "name": "Empathy",
+          "profession": "Mesmer",
+          "profession_id": 5
+        },
+        "38": {
+          "id": 38,
+          "name": "Channeling",
+          "profession": "Mesmer",
+          "profession_id": 5
+        },
+        "52": {
+          "id": 52,
+          "name": "Panic",
+          "profession": "Mesmer",
+          "profession_id": 5
+        },
+        "57": {
+          "id": 57,
+          "name": "Cry of Frustration",
+          "profession": "Mesmer",
+          "profession_id": 5
+        },
+        "69": {
+          "id": 69,
+          "name": "Shatter Enchantment",
+          "profession": "Mesmer",
+          "profession_id": 5
+        }
+      }
+    },
+    "enc:\\\\x8102\\\\x3D38\\\\xB9C0\\\\xB416\\\\x2484": {
+      "encoded_names": [
+        "\\\\x8102\\\\x3D38\\\\xB9C0\\\\xB416\\\\x2484"
+      ],
+      "inferred_primary": "Warrior",
+      "inferred_secondary": "",
+      "model_ids": [
+        8218
+      ],
+      "observed_maps": {
+        "880": {
+          "base_id": 880,
+          "id": 880,
+          "instance_type": "Explorable",
+          "name": "Unknown Map ID"
+        }
+      },
+      "observed_skills": {
+        "321": {
+          "id": 321,
+          "name": "Wild Blow",
+          "profession": "Warrior",
+          "profession_id": 1
+        },
+        "386": {
+          "id": 386,
+          "name": "Seeking Blade",
+          "profession": "Warrior",
+          "profession_id": 1
+        }
+      }
+    },
+    "enc:\\\\x8102\\\\x3D3D\\\\xA84C\\\\x8F40\\\\x7A37": {
+      "encoded_names": [
+        "\\\\x8102\\\\x3D3D\\\\xA84C\\\\x8F40\\\\x7A37"
+      ],
+      "inferred_primary": "Warrior",
+      "inferred_secondary": "",
+      "model_ids": [
+        8219
+      ],
+      "observed_maps": {
+        "880": {
+          "base_id": 880,
+          "id": 880,
+          "instance_type": "Explorable",
+          "name": "Unknown Map ID"
+        }
+      },
+      "observed_skills": {
+        "330": {
+          "id": 330,
+          "name": "Cyclone Axe",
+          "profession": "Warrior",
+          "profession_id": 1
+        },
+        "334": {
+          "id": 334,
+          "name": "Axe Rake",
+          "profession": "Warrior",
+          "profession_id": 1
+        },
+        "335": {
+          "id": 335,
+          "name": "Cleave",
+          "profession": "Warrior",
+          "profession_id": 1
+        },
+        "336": {
+          "id": 336,
+          "name": "Executioner's Strike",
+          "profession": "Warrior",
+          "profession_id": 1
+        },
+        "337": {
+          "id": 337,
+          "name": "Dismember",
+          "profession": "Warrior",
+          "profession_id": 1
+        },
+        "340": {
+          "id": 340,
+          "name": "Disrupting Chop",
+          "profession": "Warrior",
+          "profession_id": 1
+        },
+        "342": {
+          "id": 342,
+          "name": "Axe Twist",
+          "profession": "Warrior",
+          "profession_id": 1
         }
       }
     },
@@ -21975,6 +22223,12 @@
           "name": "Heal Other",
           "profession": "Monk",
           "profession_id": 3
+        },
+        "294": {
+          "id": 294,
+          "name": "Signet of Judgment",
+          "profession": "Monk",
+          "profession_id": 3
         }
       }
     },
@@ -22008,6 +22262,12 @@
         }
       },
       "observed_skills": {
+        "461": {
+          "id": 461,
+          "name": "Spike Trap",
+          "profession": "Ranger",
+          "profession_id": 2
+        },
         "475": {
           "id": 475,
           "name": "Quickening Zephyr",
@@ -22327,6 +22587,12 @@
           "name": "Precision Shot",
           "profession": "Ranger",
           "profession_id": 2
+        },
+        "435": {
+          "id": 435,
+          "name": "Apply Poison",
+          "profession": "Ranger",
+          "profession_id": 2
         }
       }
     },
@@ -22489,6 +22755,12 @@
         "28": {
           "id": 28,
           "name": "Backfire",
+          "profession": "Mesmer",
+          "profession_id": 5
+        },
+        "52": {
+          "id": 52,
+          "name": "Panic",
           "profession": "Mesmer",
           "profession_id": 5
         },
