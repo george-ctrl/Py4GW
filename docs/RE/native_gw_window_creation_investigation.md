@@ -5,9 +5,149 @@ This note captures the current verified model for Guild Wars native UI window cr
 
 This phase assumes:
 
-- DevText is the only stable, proven native clone path.
+- `Gw.wasm` is the semantic source of truth for UI creation flow and symbol identity.
+- The stripped/symbol EXE remains the runtime body that C++ must actually call or hook.
+- `docs/CPP_WASM_MAPPING.md` is the required bridge workflow when promoting WASM findings into C++.
+- DevText is still the only clearly proven clone-backed native path, but it is no longer the primary design target for an empty reusable window shell.
 - DevSound direct proc cloning is not safe yet and is comparison-only.
 - New hook or callback targets must be proven in Python via pattern recovery before any C++ hook is trusted.
+
+## Source-of-Truth Update
+
+The earlier working model in this note leaned too heavily on DevText as the practical specimen path.
+That remains useful for proving callback-driven creation, but it is not the cleanest target for the actual goal.
+
+The current goal is narrower and more architectural:
+
+- identify a native Guild Wars window/container shell that is:
+  - titled
+  - resizable
+  - capable of hosting child UI elements
+  - as empty or suppressible as possible
+
+That means the primary RE path now starts in `Gw.wasm`, then bridges back to the EXE and finally to C++.
+
+## WASM-First Findings
+
+### 1. Generic frame creation is not enough by itself
+
+Named WASM symbol:
+
+- `FrameCreate(unsigned int, unsigned int, unsigned int, void (*)(FrameMsgHdr const&, void const*, void*), void const*, wchar_t const*)`
+
+This is the low-level frame constructor. It allocates the frame object, installs the callback, emits lifecycle notifications, and dispatches initial messages.
+
+Important limitation:
+
+- `FrameCreate(...)` alone does not produce a complete floating game window shell.
+- Higher-level callers still perform title wiring, subclassing, placement, visibility, and other policy setup.
+
+### 2. The real floating-window factory is `IUi::Game::DialogShow(...)`
+
+Named WASM symbol:
+
+- `IUi::Game::DialogShow(unsigned int, IUi::Game::EFloatingDialog, int, void const*)`
+
+This is the real floating-dialog/window creation pipeline currently visible in `Gw.wasm`.
+
+Recovered responsibilities from the decompile/callee map:
+
+- resolves a floating-dialog descriptor record
+- destroys or reuses any existing instance in the target child slot
+- calls `FrameCreate(...)`
+- enables gamepad behavior
+- may show and activate the frame
+- installs a subclass with `FrameNewSubclass(...)`
+- sets title and optional hotkey title text
+- calls `FramePlaceChildren(..., L"GmView-Dialog")`
+- restores saved window position from preferences
+- applies width, height, and layer policy in some cases
+
+Implication:
+
+- The clean empty-window target should be modeled as a window-shell problem, not just a callback-clone problem.
+- Any C++ path that wants arbitrary native windows should account for the `DialogShow(...)` contract, not just `CreateUIComponent(...)` or `FrameCreate(...)` in isolation.
+
+### 3. DevText is a valid specimen but not the best shell target
+
+Named WASM symbols:
+
+- `IUi::DlgDevTextProc(FrameMsgHdr const&, void const*, void*)`
+- `IUi::NDlgDevText::CTextDialogFrame::OnCreate(unsigned int)`
+
+Current model:
+
+- `IUi::DlgDevTextProc(...)` is a thin dispatcher.
+- On `message 9`, it forwards into `CTextDialogFrame::OnCreate(...)`.
+- `OnCreate(...)` performs eager content creation for the debug text window.
+
+Implication:
+
+- DevText still proves that native window creation is callback-driven.
+- It is not the cleanest specimen for a reusable empty shell because its payload content is tightly coupled to first construction.
+
+### 4. Inventory aggregate is a better empty-shell candidate
+
+Named WASM symbols:
+
+- `IUi::Game::InventoryAggregateFrameProc(FrameMsgHdr const&, void const*, void*)`
+- `IUi::Game::Inventory::CAggregateInv::FrameProc(FrameMsgHdr const&, void const*, void*)`
+- `IUi::Game::Inventory::CAggregateInv::OnFrameCreate(FrameMsgCreate const&)`
+- `IUi::Game::Inventory::CAggregateInv::OnFrameSize(FrameMsgSize const&)`
+- `IUi::Game::Inventory::CAggregateInv::OnFrameSizeQuery(FrameMsgSizeQuery const&)`
+- `IUi::Game::Inventory::CAggregateInv::UpdateBags()`
+
+This family currently looks like the cleanest titled/resizable native container specimen discovered so far.
+
+#### `CAggregateInv::OnFrameCreate(...)`
+
+Observed responsibilities:
+
+- enables mouse on the root frame
+- enables gamepad on the root frame
+- creates child `0` as the main hosted view/list frame
+- configures view increment and page behavior on child `0`
+- installs size and size-query handlers on child `0`
+- sets min and max size on the root
+- registers multiple frame messages on the root
+- only then calls `UpdateBags()`
+
+This is the key architectural difference versus DevText:
+
+- shell/container setup happens first
+- payload population happens later in a distinct function
+
+#### `CAggregateInv::OnFrameSize(...)`
+
+Observed responsibilities:
+
+- retrieves child `0`
+- repositions child `0` within the resized root
+
+#### `CAggregateInv::OnFrameSizeQuery(...)`
+
+Observed responsibilities:
+
+- retrieves child `0`
+- queries child `0` for native size
+- propagates that size upward
+
+#### `CAggregateInv::UpdateBags()`
+
+Observed responsibilities:
+
+- retrieves child `0`
+- clears the frame list
+- reads inventory/bag visibility prefs
+- resolves bag ids
+- creates list items for bag slots
+
+This is the payload population step, not the shell setup step.
+
+Implication:
+
+- If the objective is an empty native resizable container, `CAggregateInv` is a stronger target than DevText.
+- The most promising path is to preserve the shell/root/content-host setup while suppressing or replacing `UpdateBags()`.
 
 ## Layer Map
 
@@ -147,15 +287,14 @@ Rules:
 - Never hardcode `+0x30` as a rule; only record it when independently validated for that target.
 
 ## Current Window Family Comparison
-| Dimension | DevText | DevSound |
-| --- | --- | --- |
-| Trusted clone status | Proven | Not proven |
-| Dialog proc | `Ui_DevTextDialogProc` at `0x00864170` | `Ui_DevSoundDialogProc` at `0x00863700` |
-| Cold create via `UIManager.CreateWindow(...)` | Stable | Crashes client |
-| Message `9` role | Builds children directly and attaches handler/title | Calls structured content builder |
-| Child creation shape | Repeated label + multiline controls | Fixed table of labels, sliders, value labels |
-| Later refresh separation | Weak at constructor, better candidate later in multiline `0x37` | Stronger architectural separation via separate updaters |
-| Best use right now | Baseline creation specimen | Comparison/reference specimen |
+| Dimension | DevText | DevSound | Inventory Aggregate |
+| --- | --- | --- | --- |
+| Primary role | Debug text window | Debug sound window | Real game inventory aggregate window |
+| Trusted create status | Proven clone-backed specimen | Not proven for direct proc create | Promising WASM shell specimen |
+| Core proc model | Thin proc -> eager `OnCreate` payload build | Proc -> structured content builder | Proc/class shell setup -> later `UpdateBags()` payload build |
+| Resize support | Present but content-heavy | Present | Explicit `OnFrameSize` and `OnFrameSizeQuery` |
+| Child host setup | Mixed into constructor-time content build | Mixed with dialog build path | Explicit child `0` host created before payload fill |
+| Best use right now | callback-driven creation reference | comparison/reference specimen | best current candidate for an empty titled resizable host |
 
 ### DevText specifics already established
 - `message 9` creates child `0` with `Ui_DevTextChildContainerProc`.
@@ -175,11 +314,12 @@ Rules:
 ## Candidate Suppression Boundaries
 Ranked safest-first based on current evidence:
 
-1. Later rebuild/update paths on already-created controls.
-2. DevText multiline control rebuild path at `message 0x37`.
-3. Family-specific refresh/update helpers that repopulate values or text after construction.
-4. Dialog-level post-create refresh paths after shell creation is fully complete.
-5. Constructor-time suppression inside dialog `message 9`.
+1. Inventory-family payload refresh/population helpers such as `CAggregateInv::UpdateBags()` after shell setup is complete.
+2. Later rebuild/update paths on already-created controls.
+3. DevText multiline control rebuild path at `message 0x37`.
+4. Family-specific refresh/update helpers that repopulate values or text after construction.
+5. Dialog-level post-create refresh paths after shell creation is fully complete.
+6. Constructor-time suppression inside dialog `message 9`.
 
 Do not currently target:
 
@@ -190,8 +330,8 @@ Do not currently target:
 ## Next REVA/Ghidra Passes
 Keep batches small.
 
-### Pass 1: Reconcile existing labeled functions against runtime-usable entries
-For each current known DevText/DevSound function:
+### Pass 1: Reconcile named WASM shell targets against runtime-usable EXE entries
+For each current known shell candidate:
 
 - confirm static address in Ghidra
 - note whether a runtime-usable entry is separately known
@@ -200,43 +340,42 @@ For each current known DevText/DevSound function:
 
 Goal:
 
-- remove ambiguity between "identified in Ghidra" and "safe callable runtime target"
+- remove ambiguity between "identified in `Gw.wasm`" and "safe callable runtime EXE target"
 
-### Pass 2: Caller/callee map around the two dialog procs
+### Pass 2: Dialog/window factory map around `DialogShow(...)`
 Focus:
 
-- `Ui_DevTextDialogProc`
-- `Ui_DevSoundDialogProc`
+- `IUi::Game::DialogShow(...)`
+- the floating-dialog descriptor table it indexes
 
 Questions:
 
-- which helpers are shared scaffolding
-- which helpers are family-specific content builders
-- what runs before the first child create
-- what runs after the last child create
+- which fields define proc, title, flags, pref window, and subclass policy
+- which helpers are generic shell scaffolding
+- which helpers are payload-specific
 
-### Pass 3: Shared helpers before and after child creation
-Focus on helpers that look like:
-
-- proc install/setup
-- root title/name assignment
-- child container creation
-- handler list/callback attachment
-- refresh or redraw signaling
-
-Goal:
-
-- isolate a common shell pattern that exists across both families
-
-### Pass 4: Later rebuild/update boundaries
+### Pass 3: Inventory aggregate shell isolation
 Focus:
 
-- DevText multiline `message 0x37`
-- DevSound updater/value refresh helpers
+- `CAggregateInv::OnFrameCreate(...)`
+- `CAggregateInv::OnFrameSize(...)`
+- `CAggregateInv::OnFrameSizeQuery(...)`
+- `CAggregateInv::UpdateBags()`
 
 Goal:
 
-- identify the earliest safe point where content can be minimized or cleared without invalidating initial construction
+- determine whether the root plus child `0` host can survive without `UpdateBags()`
+
+### Pass 4: EXE bridge promotion via `CPP_WASM_MAPPING.md`
+Focus:
+
+- string/file anchors from WASM inventory symbols
+- corresponding EXE xrefs and caller chains
+- final scanner/pattern strategy for C++
+
+Goal:
+
+- promote the WASM-derived shell target into a verified EXE/C++ call path
 
 ## Validation Checklist
 
@@ -260,6 +399,17 @@ Goal:
 - notes on alternate entry behavior if observed
 
 ## Current Conclusion
-The current `CreateWindow(...)` path is a thin native construction wrapper, not a shell builder. It creates a frame, applies rect, and triggers redraw, but the chosen dialog proc remains responsible for its own lifecycle and required content setup. That is why DevText works only as a fully initialized native specimen and why DevSound can still crash despite using the same wrapper.
+The current `CreateWindow(...)` path is still only a thin native construction wrapper. It creates a frame, applies rect, and triggers redraw, but the chosen proc remains responsible for shell policy and payload setup.
 
-The most promising next direction is not constructor-time suppression. It is identifying a post-create rebuild/update boundary, while maintaining a disciplined Ghidra-to-runtime catalog so previously identified UI-process functions can be reused safely instead of rediscovered or miscalled.
+The main correction from the newer WASM pass is this:
+
+- the true semantic source of truth is `Gw.wasm`
+- arbitrary native windows should be modeled from `DialogShow(...)` and inventory-style shell families, not from DevText cloning alone
+
+The current best empty-window candidate is no longer DevText. It is the inventory aggregate family:
+
+- keep the root shell and child `0` content host
+- preserve resize/title/container behavior
+- suppress or replace `CAggregateInv::UpdateBags()`
+
+That is the cleanest currently known route toward an empty titled resizable native host that can later accept custom child UI elements.

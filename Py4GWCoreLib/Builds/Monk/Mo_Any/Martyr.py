@@ -13,7 +13,7 @@ from HeroAI.targeting import GetAllAlliesArray
 from HeroAI.types import Skilltarget
 
 
-Healing_Burst_ID = Skill.GetID("Healing_Burst")
+Martyr_ID = Skill.GetID("Martyr")
 Dwaynas_Kiss_ID = Skill.GetID("Dwaynas_Kiss")
 Seed_of_Life_ID = Skill.GetID("Seed_of_Life")
 Draw_Conditions_ID = Skill.GetID("Draw_Conditions")
@@ -24,7 +24,7 @@ Cure_Hex_ID = Skill.GetID("Cure_Hex")
 
 @dataclass(slots=True)
 class _RequiredSupportSnapshot:
-    healing_burst_needed: bool = False
+    martyr_target_id: int = 0
     dwaynas_kiss_needed: bool = False
     seed_of_life_needed: bool = False
     draw_conditions_needed: bool = False
@@ -32,21 +32,21 @@ class _RequiredSupportSnapshot:
     @property
     def any_required_support_needed(self) -> bool:
         return (
-            self.healing_burst_needed
+            bool(self.martyr_target_id)
             or self.dwaynas_kiss_needed
             or self.seed_of_life_needed
             or self.draw_conditions_needed
         )
 
 
-class Healing_Burst(BuildMgr):
+class Martyr(BuildMgr):
     def __init__(self, match_only: bool = False):
         super().__init__(
-            name="Healing Burst",
+            name="Martyr",
             required_primary=Profession.Monk,
             template_code="OwUUMoG/CoSeRbE5g3EAAAAAAAAA",
             required_skills=[
-                Healing_Burst_ID,
+                Martyr_ID,
                 Dwaynas_Kiss_ID,
                 Draw_Conditions_ID,
             ],
@@ -65,14 +65,14 @@ class Healing_Burst(BuildMgr):
         self.skills: SkillsTemplate = SkillsTemplate(self)
 
     def _get_required_support_snapshot(self) -> _RequiredSupportSnapshot:
-        healing_burst = self.GetEquippedCustomSkill(Healing_Burst_ID)
+        martyr = self.GetEquippedCustomSkill(Martyr_ID)
         dwaynas_kiss = self.GetEquippedCustomSkill(Dwaynas_Kiss_ID)
         seed_of_life = self.GetEquippedCustomSkill(Seed_of_Life_ID)
         draw_conditions = self.GetEquippedCustomSkill(Draw_Conditions_ID)
 
         required_skills = [
             skill
-            for skill in (healing_burst, dwaynas_kiss, seed_of_life, draw_conditions)
+            for skill in (martyr, dwaynas_kiss, seed_of_life, draw_conditions)
             if skill is not None
         ]
         snapshot = _RequiredSupportSnapshot()
@@ -92,11 +92,16 @@ class Healing_Burst(BuildMgr):
         if not ally_array:
             return snapshot
 
-        healing_burst_threshold = (
-            float(healing_burst.Conditions.LessLife)
-            if healing_burst is not None and healing_burst.Conditions.LessLife > 0
-            else 0.0
+        snapshot.martyr_target_id = (
+            self.ResolveRankedPartyAllyTarget(
+                Martyr_ID,
+                martyr,
+                validator=lambda agent_id: agent_id != player_id,
+            )
+            if martyr is not None
+            else 0
         )
+
         dwaynas_kiss_threshold = (
             float(dwaynas_kiss.Conditions.LessLife)
             if dwaynas_kiss is not None and dwaynas_kiss.Conditions.LessLife > 0
@@ -107,7 +112,6 @@ class Healing_Burst(BuildMgr):
             if seed_of_life is not None and seed_of_life.Conditions.LessLife > 0
             else 0.0
         )
-        max_any_ally_heal_threshold = healing_burst_threshold
         max_other_ally_heal_threshold = max(dwaynas_kiss_threshold, seed_of_life_threshold)
         needs_seed_party_average = bool(
             seed_of_life is not None
@@ -128,10 +132,6 @@ class Healing_Burst(BuildMgr):
             alive_count += 1
             total_health += health
 
-            if not snapshot.healing_burst_needed and max_any_ally_heal_threshold > 0:
-                if health <= max_any_ally_heal_threshold:
-                    snapshot.healing_burst_needed = True
-
             if is_other_ally and max_other_ally_heal_threshold > 0 and health <= max_other_ally_heal_threshold:
                 if not snapshot.dwaynas_kiss_needed and dwaynas_kiss_threshold > 0 and health <= dwaynas_kiss_threshold:
                     snapshot.dwaynas_kiss_needed = True
@@ -149,7 +149,7 @@ class Healing_Burst(BuildMgr):
                     snapshot.draw_conditions_needed = True
 
             if (
-                snapshot.healing_burst_needed
+                snapshot.martyr_target_id
                 and snapshot.dwaynas_kiss_needed
                 and snapshot.draw_conditions_needed
                 and (not needs_seed_party_average or snapshot.seed_of_life_needed is False)
@@ -179,7 +179,11 @@ class Healing_Burst(BuildMgr):
 
         player_energy_pct = float(Agent.GetEnergy(Player.GetAgentID()))
 
-        if support_snapshot.healing_burst_needed and (yield from self.skills.Monk.HealingPrayers.Healing_Burst()):
+        if support_snapshot.martyr_target_id and (yield from self.CastSkillIDAndRestoreTarget(
+            Martyr_ID,
+            support_snapshot.martyr_target_id,
+            aftercast_delay=100,
+        )):
             return True
 
         if (yield from self.skills.Monk.NoAttribute.Remove_Hex(min_priority=HexRemovalPriority.HIGH)):
