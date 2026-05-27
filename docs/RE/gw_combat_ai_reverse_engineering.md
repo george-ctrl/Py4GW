@@ -1,12 +1,12 @@
 # Guild Wars Combat AI Reverse Engineering
 
-Date: 2026-03-26
-Program: `/Gw.exe(Symbols)`
+Date: 2026-05-20 (updated with WASM pass)
+Program: `/Gw.exe(Symbols)` and `/Gw.wasm`
 Tooling: REVA / Ghidra MCP
 
 ## Objective
 
-This document summarizes the current reverse-engineering state of the client-side combat AI-related systems in `Gw.exe`.
+This document summarizes the current reverse-engineering state of the client-side combat AI-related systems in `Gw.exe` and `Gw.wasm`.
 
 The practical goal is not to fully rewrite the AI.
 
@@ -16,6 +16,21 @@ In short:
 
 - preferred outcome: let the game decide, capture the output, adapt it
 - less desirable outcome: replicate the logic manually
+
+## Source-of-Truth Update
+
+As of May 2026, `Gw.wasm` is the semantic source of truth for combat AI function identity.
+The EXE naming and addresses in earlier sections of this doc remain useful as bridge anchors,
+but the WASM-side symbols should be treated as the authoritative names.
+
+WASM naming conventions differ substantially from the stripped EXE:
+- EXE uses flat `FUN_xxxxxxxx` / renamed names
+- WASM uses namespaced C++ names like `IAgentView::CCharAgent::*`, `CharClient::CHeroMgr::*`, `AvSelect::*`
+
+The bridging workflow for any new target follows `docs/CPP_WASM_MAPPING.md`:
+1. find the WASM symbol name
+2. use string anchors or assertion/caller patterns to locate the corresponding EXE body
+3. only then encode the scanner/pattern for C++ hooking
 
 ## Executive Summary
 
@@ -43,17 +58,146 @@ Current best reusable output chain:
 
 That chain currently looks more promising for hooking than the public skill-use or movement entry points.
 
-## High-Level Conclusion
+## WASM-First Combat AI Findings (May 2026)
 
-We did not prove one neat monolithic client-side "combat brain."
+### Agent Manager Master Tick
 
-We did find a structured native combat-agent framework that is probably good enough to hook.
+- `IAgentView::ManagerAdvance(float)` — `ram:80ba1628`
 
-Current judgment:
+This is the per-frame agent system tick. It:
+1. processes pending agent cleanup via `HandleClose`
+2. checks sequence queue congestion
+3. iterates agent arrays, dispatching virtual-function-based per-agent updates
+4. delegates to partition-based spatial updates
 
-- hooking looks more plausible than full AI replication
-- full custom-agent integration does not currently look necessary
-- the better strategy is likely to observe and reuse the game's internal action/timeline outputs
+This is the highest-level tick wrapper for all agent advancement including combat agent evaluation.
+
+### Per-Agent Visual/Animation Advance
+
+- `IAgentView::CCharAgent::Advance(float)` — `ram:80b5a875`
+
+This handles per-agent animation, opacity, model state, and visual updates.
+It is NOT the combat AI decision function — it processes the results of AI decisions,
+not the decisions themselves.
+
+Callees include:
+- `CBaseAgent::Advance(float)`
+- `ProcessActions()`
+- `ProcessEffect(EffectChar*)`
+- `UpdateSound()`
+- `CCharAgent::LipSyncUpdate()`
+- `CCharAgent::SetAnimation(EActionChar, ...)`
+- `CCharAgent::ProcessActionBatch()`
+
+### Action Dispatch System
+
+- `IAgentView::CCharAgent::ProcessActionBatch()` — `ram:80b62abc`
+
+This is the action-record dispatcher. It iterates through enqueued `ActionChar` records
+(linked-list at `agent + 0xCC`) and dispatches each record to the appropriate per-type handler:
+
+Action type → handler map:
+- 0: `ProcessActionExecute`
+- 1: `ProcessActionExecutePost`
+- 2: `ProcessActionAttackFizzle`
+- 3: `ProcessActionAttackWarmup`
+- 4: (assertion — invalid action)
+- 5: `ProcessActionEmote`
+- 6: `ProcessActionEmoteAion`
+- 7: `ProcessActionEmoteRank`
+- 8: `ProcessActionEmoteZaishen`
+- 9: `Equip(slot, itemId)`
+- 10: ActionDequeue (self-dequeue)
+- 11: `ProcessActionPickup`
+- 12: `ProcessActionMissileLand`
+- 13: `CompositeRefreshGeometry`
+- 14: ActionDequeue (self-dequeue)
+- 15: (assertion)
+- 16: `ProcessActionExecute` (alternate path)
+- 17: `ProcessActionSpellWarmup`
+- 18: `ProcessActionSpellFizzle`
+- 19: `ProcessActionSkillWarmup`
+- 20: `ProcessActionSkillFizzle`
+- 21: `SetAnimation(0x28, ...)`
+
+This is the output-side action execution pipeline, not the decision side.
+
+### Hero/Henchman/NPC AI Mode System
+
+Key symbols in `Gw.wasm`:
+
+Command entry points:
+- `CharCliCommandAiMode(unsigned long, ECharAiMode)` — `ram:80c44017`
+- `CharMsgSendCommandAiMode(unsigned long, ECharAiMode)` — `ram:80a123e5`
+
+Hero-specific manager:
+- `CharClient::CHeroMgr::OnCommandAiMode(unsigned long, ECharAiMode)` — `ram:80be4815`
+- `CharClient::CHeroMgr::OnCommandAiPriorityTarget(unsigned long, unsigned long)` — `ram:80be4ac7`
+- `CharClient::CHeroMgr::OnCommandMoveToPoint(unsigned long, MapPoint const&)` — `ram:80be4d79`
+- `CharClient::CHeroMgr::OnHeroActivate(EHero, unsigned long, unsigned int, ECharAiMode)` — `ram:80be51ed`
+
+Pet-specific manager:
+- `CharClient::CPetMgr::OnCommandAiMode(unsigned long, ECharAiMode)` — `ram:80beb99c`
+- `CharClient::CPetMgr::OnCommandAiPriorityTarget(unsigned long, unsigned long)` — `ram:80bebcd1`
+
+Classification:
+- `AvCharIsHenchman(unsigned long)` — `ram:80bbba66`
+
+Target Selection:
+- `AvSelectSetAutoEnabledForCombat(int)` — `ram:80bc33a9`
+- `AvSelectGetActive()` — `ram:80bc29ef`
+- `AvSelectGetAuto()` — `ram:80bc2a0a`
+- `AvSelectSetAutoTargetMode(EAvAutoTargetMode)` — `ram:80bc291d`
+
+UI Hero AI mode handler:
+- `IUi::Game::OnCharacterHeroAiMode(unsigned int, CharHeroActive const&)` — `ram:815d6e23`
+
+### Observed Combat AI Architecture in WASM
+
+The WASM-side architecture differs from the earlier EXE-only model in these ways:
+
+1. The combat agent view system (EXE's `CombatAgentView`) does NOT appear under that name in WASM.
+   The naming is entirely under `IAgentView::` — e.g., `IAgentView::CCharAgent::*`, not `CombatAgentView::*`.
+
+2. The hero/henchmen AI decision loop is NOT yet located with a single clear symbol name.
+   The chain is probably:
+   - `ManagerAdvance` → agent vtable dispatch → per-agent evaluation → action enqueue → `ProcessActionBatch`
+
+3. The per-agent combat evaluation (equivalent of EXE's `UpdateCombatAgentView`) is dispatched
+   through virtual function tables in the agent objects, so the actual combat evaluation function
+   likely appears in WASM under a concrete class override that we have not yet identified.
+
+4. The action execution pipeline is fully mapped under `IAgentView::CCharAgent::ProcessActionBatch()`
+   with all 17+ action type handlers identified.
+
+5. `OnCommandAiMode` in `CHeroMgr` merely stores the AI mode value and sends a frame message (0x1000003a).
+   It does not itself perform combat evaluation.
+
+### Where the Combat AI Decision Likely Lives
+
+The combat AI evaluation (the "brain" that decides which skill to use, which target, etc.)
+is most likely:
+
+- a virtual function on `IAgentView::CCharAgent` or a subclass
+- called during `ManagerAdvance` via the agent vtable
+- possibly `IAgentView::AutoSelectionUpdateAgent(float)` — `ram:80a600e6`
+- or a not-yet-named function inside a hero/pet/npc-specific vtable implementation
+
+The remaining unknown is specifically:
+- which vtable slot/function on a combat-capable agent performs skill/target/movement selection
+- where that function enqueues actions into the `ActionChar` linked list at `agent+0xCC`
+
+### Best Current Hook Candidates (WASM-side)
+
+Decision-side:
+- `ManagerAdvance(float)` — `ram:80ba1628` (master tick, dispatch point)
+- `IAgentView::AutoSelectionUpdateAgent(float)` — `ram:80a600e6` (likely target evaluation, needs confirmation)
+
+Output/execution-side (well mapped):
+- `CCharAgent::ProcessActionBatch()` — `ram:80b62abc` (action dispatch)
+- `CCharAgent::ProcessActionExecute(IAgentView::ActionChar*)` — `ram:80b74105` (skill cast execution)
+- `CCharAgent::ProcessActionAttackWarmup(IAgentView::ActionChar*)` — `ram:80b6a228`
+- `CCharAgent::ProcessActionSkillWarmup(IAgentView::ActionChar*)` — `ram:80b6f15c
 
 ## Investigation Path
 
