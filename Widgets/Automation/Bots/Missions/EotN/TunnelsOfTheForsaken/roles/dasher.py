@@ -22,18 +22,13 @@ Variant (Optional slot, slot 7):
 
 from __future__ import annotations
 
-import datetime
 import enum
-import json
-import math
-import os
 import time
 
 from Py4GWCoreLib.GlobalCache import GLOBAL_CACHE
 from Py4GWCoreLib.Player import Player
 from Py4GWCoreLib.Agent import Agent
 from Py4GWCoreLib.AgentArray import AgentArray
-from Py4GWCoreLib.Camera import Camera
 from Py4GWCoreLib.py4gwcorelib_src.BehaviorTree import BehaviorTree
 from Py4GWCoreLib.py4gwcorelib_src.Utils import Utils
 from Py4GWCoreLib.routines_src.behaviourtrees_src.composite import BTComposite
@@ -44,10 +39,11 @@ from Py4GWCoreLib.sc_framework import (
 )
 from Py4GWCoreLib.sc_framework.avoidance import AvoidanceConfig
 
+from ._gate_clip import GateClipper
 from ._shared import _slot_for, log, movement_log
 from ..constants import (
     MapID, Barriers, Signals, SkillID, ModelID,
-    Waypoints, GateClip, HoSSkip, PARTY_SIZE, BARBS_INTERVAL_MS,
+    Waypoints, HoSSkip, PARTY_SIZE, BARBS_INTERVAL_MS,
 )
 from ..outpost import OutpostHandler
 from ..agents import find_enraged_phantom, find_varny
@@ -319,218 +315,34 @@ def _build_hos_skip() -> BehaviorTree:
 # ── Gate clip ─────────────────────────────────────────────────────────────────
 
 def _build_gate_clip_node() -> BehaviorTree:
-    """
-    Mob-collision gate clip at the end of Level 1.
+    dc_slot = _slot_for(SkillID.DeathsCharge)
 
-    Mechanic (confirmed from 7 recordings, 4 successful):
-        The clip is a ONE-TICK collision resolution event.  Player must be AT the
-        gate wall (py ≈ GATE_POS[1] ≈ 3495–3498; wall stops you here from the south).
-        When 1+ enemy reaches dy ≈ [-35, 0] (south face of wall), the game resolves
-        the player–enemy–wall overlap by teleporting the player 85–115 units north.
-        Player velocity at clip time can be zero; no active northward movement is required,
-        but issuing Player.Move to DEST_POS keeps the player pressed against the wall and
-        ensures the game sees a northward intent if that helps resolution.
-
-    Phase sequence:
-        approach    Walk to GATE_POS, player stops at wall naturally.
-        clip        Issue Player.Move(target_x, DEST_POS_Y) every 300 ms so the player
-                    presses north against the wall.  Nudge south to re-attract enemies if
-                    none are close to gate for STALL_MS.
-        done        Post-clip move issued; return SUCCESS next tick.
-    """
-    _ENEMY_DY_MIN     = -50.0    # enemies within 50 units south of gate are "close to gate"
-    _CLIP_DURATION_MS = 25_000
-    _APPROACH_REISSUE = 500
-    _MOVE_REISSUE     = 300      # how often to reissue Player.Move in clip phase
-    _ARRIVAL_Y        = GateClip.GATE_WALL_Y - 10.0  # wall stops player here; check Y only
-    _MAX_RETRIES      = 10
-
-    _REC_DIR = os.path.join(os.getcwd(), "gate_clip_recordings")
-
-    state: dict = {
-        "phase":        "approach",
-        "phase_ms":     0.0,
-        "retry":        0,
-        "last_move_ms": 0.0,
-        "rec_file":     None,
-        "rec_frames":   0,
-        "rec_start_ms": 0.0,
-        "rec_attempt":  0,
-    }
-
-    def _now() -> float:
-        return _mono_ms()
-
-    def _elapsed() -> float:
-        return _now() - state["phase_ms"]
-
-    # ── recording helpers ──────────────────────────────────────────────────
-
-    def _rec_open(attempt: int) -> None:
-        try:
-            os.makedirs(_REC_DIR, exist_ok=True)
-            ts   = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            path = os.path.join(_REC_DIR, f"attempt_{attempt:02d}_{ts}.jsonl")
-            state["rec_file"]     = open(path, "w", encoding="utf-8")
-            state["rec_frames"]   = 0
-            state["rec_start_ms"] = _now()
-            log(f"GateClip: recording → {path}")
-        except Exception as exc:
-            log(f"GateClip: recording FAILED to open — {exc}")
-
-    def _rec_close(outcome: str, clipped: bool) -> None:
-        f = state["rec_file"]
-        if f is None:
+    def _dc_fallback() -> None:
+        if not dc_slot:
             return
-        duration = _now() - state["rec_start_ms"]
-        f.write(json.dumps({
-            "summary":     True,
-            "attempt":     state["rec_attempt"],
-            "frames":      state["rec_frames"],
-            "duration_ms": round(duration, 1),
-            "clipped":     clipped,
-            "outcome":     outcome,
-        }) + "\n")
-        f.close()
-        state["rec_file"] = None
-        log(f"GateClip: recording closed — {outcome} ({state['rec_frames']} frames)")
-
-    def _rec_tick(px: float, py: float, phase: str, cand: dict | None) -> None:
-        f = state["rec_file"]
-        if f is None:
-            return
-        player_id = Player.GetAgentID()
-        pvx, pvy  = Agent.GetVelocityXY(player_id)
-        yaw       = Camera.GetYaw()
-        enemies   = []
+        px, py   = Player.GetXY()
+        best_id  = None
+        best_d   = float("inf")
         try:
             for aid in AgentArray.GetEnemyArray():
                 if not Agent.IsAlive(aid):
                     continue
                 ax, ay = Agent.GetXY(aid)
-                dist   = Utils.Distance((px, py), (ax, ay))
-                if dist > 800.0:
-                    continue
-                avx, avy = Agent.GetVelocityXY(aid)
-                enemies.append({
-                    "id":      aid,
-                    "x":       round(ax, 2),
-                    "y":       round(ay, 2),
-                    "vx":      round(avx, 4),
-                    "vy":      round(avy, 4),
-                    "moving":  Agent.IsMoving(aid),
-                    "dist":    round(dist, 1),
-                    "dy_gate": round(ay - GateClip.GATE_WALL_Y, 2),
-                })
+                d = Utils.Distance((px, py), (ax, ay))
+                if 200.0 < d < 700.0 and d < best_d:
+                    best_d  = d
+                    best_id = aid
         except Exception:
             pass
-        try:
-            f.write(json.dumps({
-                "t":       round(_now() - state["rec_start_ms"], 1),
-                "phase":   phase,
-                "px":      round(px, 2),
-                "py":      round(py, 2),
-                "pvx":     round(pvx, 4),
-                "pvy":     round(pvy, 4),
-                "yaw_d":   round(math.degrees(yaw), 2),
-                "success": _point_in_polygon(px, py, GateClip.SUCCESS_POLYGON),
-                "cand_id": cand["id"]                  if cand else None,
-                "cand_tx": round(cand["target_x"], 2)  if cand else None,
-                "cand_dt": 0                            if cand else None,
-                "cand_dy": round(cand["dy"], 2)         if cand else None,
-                "enemies": enemies,
-            }) + "\n")
-            state["rec_frames"] += 1
-        except Exception as exc:
-            log(f"GateClip: rec_tick write error — {exc}")
+        if best_id:
+            log(f"GateClip: DC fallback → agent {best_id} (d={best_d:.0f})")
+            GLOBAL_CACHE.SkillBar.UseSkill(dc_slot, best_id)
 
-    def _transition(phase: str) -> None:
-        log(f"GateClip: -> {phase}")
-        if phase == "clip":
-            state["rec_attempt"] += 1
-            _rec_open(state["rec_attempt"])
-            set_watchdog_paused(True)   # intentionally stationary at wall
-        elif phase == "approach":
-            set_watchdog_paused(False)  # about to move; watchdog should be active
-            if state["rec_file"] is not None:
-                _rec_close("retry", False)
-        state["phase"]        = phase
-        state["phase_ms"]     = _now()
-        state["last_move_ms"] = 0.0
-
-    def _find_gate_enemies() -> list[dict]:
-        """Return alive enemies within ENEMY_DY_MIN south of the gate wall, closest first."""
-        result = []
-        try:
-            for aid in AgentArray.GetEnemyArray():
-                if not Agent.IsAlive(aid):
-                    continue
-                ax, ay = Agent.GetXY(aid)
-                dy = ay - GateClip.GATE_WALL_Y
-                if _ENEMY_DY_MIN < dy < 10.0:
-                    result.append({"id": aid, "x": ax, "dy": dy,
-                                   "target_x": ax})
-        except Exception:
-            pass
-        result.sort(key=lambda e: e["dy"], reverse=True)  # dy closest to 0 first
-        return result
-
-    def _best_target_x(enemies: list[dict]) -> float:
-        """Mean X of the two closest enemies, clamped to gate bounds."""
-        xs = [e["x"] for e in enemies[:2]]
-        tx = sum(xs) / len(xs)
-        return max(GateClip.GATE_X_MIN, min(GateClip.GATE_X_MAX, tx))
+    clipper = GateClipper(dc_fn=_dc_fallback, log_fn=log)
 
     def _tick(_: BehaviorTree.Node) -> BehaviorTree.NodeState:
-        if state["phase"] == "done":
-            return BehaviorTree.NodeState.SUCCESS
-
-        px, py = Player.GetXY()
-        now    = _now()
-
-        gate_enemies = _find_gate_enemies()
-        target_x     = _best_target_x(gate_enemies) if gate_enemies else GateClip.GATE_POS[0]
-
-        # ── approach ──────────────────────────────────────────────────────────
-        if state["phase"] == "approach":
-            if py >= _ARRIVAL_Y:
-                _transition("clip")
-                return BehaviorTree.NodeState.RUNNING
-            if now - state["last_move_ms"] > _APPROACH_REISSUE:
-                Player.Move(*GateClip.GATE_POS)
-                state["last_move_ms"] = now
-
-        # ── clip ──────────────────────────────────────────────────────────────
-        elif state["phase"] == "clip":
-            cand = gate_enemies[0] if gate_enemies else None
-            cand_rec = {"id": cand["id"], "target_x": target_x, "dy": cand["dy"]} if cand else None
-            _rec_tick(px, py, "clip", cand_rec)
-
-            if _point_in_polygon(px, py, GateClip.SUCCESS_POLYGON):
-                log("GateClip: SUCCESS — through the gate")
-                _rec_close("success", True)
-                set_watchdog_paused(False)
-                Player.Move(*GateClip.DEST_POS)
-                state["phase"] = "done"
-                return BehaviorTree.NodeState.RUNNING
-
-            if _elapsed() >= _CLIP_DURATION_MS:
-                state["retry"] += 1
-                if state["retry"] > _MAX_RETRIES:
-                    log("GateClip: FAILED — max retries reached")
-                    _rec_close("failure", False)
-                    set_watchdog_paused(False)
-                    return BehaviorTree.NodeState.FAILURE
-                log(f"GateClip: clip timeout, retry {state['retry']}/{_MAX_RETRIES}")
-                _transition("approach")
-                return BehaviorTree.NodeState.RUNNING
-
-            # press northward against wall; clip fires when an enemy reaches gate
-            if now - state["last_move_ms"] > _MOVE_REISSUE:
-                Player.Move(target_x, GateClip.DEST_POS[1])
-                state["last_move_ms"] = now
-
-        return BehaviorTree.NodeState.RUNNING
+        set_watchdog_paused(clipper.at_wall)
+        return clipper.update()
 
     return BehaviorTree(BehaviorTree.ActionNode(_tick, name="GateClip"))
 

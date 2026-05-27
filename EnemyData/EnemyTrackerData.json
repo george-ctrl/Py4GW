@@ -1014,6 +1014,12 @@
           "profession": "Elementalist",
           "profession_id": 6
         },
+        "192": {
+          "id": 192,
+          "name": "Meteor Shower",
+          "profession": "Elementalist",
+          "profession_id": 6
+        },
         "194": {
           "id": 194,
           "name": "Flare",
@@ -1369,6 +1375,12 @@
         }
       },
       "observed_skills": {
+        "396": {
+          "id": 396,
+          "name": "Dual Shot",
+          "profession": "Ranger",
+          "profession_id": 2
+        },
         "398": {
           "id": 398,
           "name": "Penetrating Attack",
